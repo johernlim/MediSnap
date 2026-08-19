@@ -1,98 +1,146 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { router } from 'expo-router';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+export default function HomeTabScreen() {
+  const goToMedication = () => {
+    router.push('/medications' as never);
+  };
 
-export default function HomeScreen() {
+  const goToAIIdentification = () => {
+    router.push('/ai-identification' as never);
+  };
+
+  const goToReminders = () => {
+    router.push('/reminders' as never);
+  };
+
+  const goToChatbot = () => {
+    router.push('/chatbot' as never);
+  };
+
+  const goToSettings = () => {
+    router.push('/settings' as never);
+  };
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        <Text style={styles.title}>MediSnap Home</Text>
+        <Text style={styles.subtitle}>Login successful</Text>
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+        <TouchableOpacity
+          style={styles.featureCard}
+          onPress={goToMedication}
+          activeOpacity={0.85}
+        >
+          <View style={styles.iconBox}>
+            <Text style={styles.iconText}>💊</Text>
+          </View>
+          <Text style={styles.featureText}>Medication</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.featureCard}
+          onPress={goToAIIdentification}
+          activeOpacity={0.85}
+        >
+          <View style={styles.iconBox}>
+            <Text style={styles.iconText}>📷</Text>
+          </View>
+          <Text style={styles.featureText}>AI Medicine Identification</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.featureCard}
+          onPress={goToReminders}
+          activeOpacity={0.85}
+        >
+          <View style={styles.iconBox}>
+            <Text style={styles.iconText}>⏰</Text>
+          </View>
+          <Text style={styles.featureText}>Reminder</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.featureCard}
+          onPress={goToChatbot}
+          activeOpacity={0.85}
+        >
+          <View style={styles.iconBox}>
+            <Text style={styles.iconText}>💬</Text>
+          </View>
+          <Text style={styles.featureText}>Chatbot</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.featureCard}
+          onPress={goToSettings}
+          activeOpacity={0.85}
+        >
+          <View style={styles.iconBox}>
+            <Text style={styles.iconText}>⚙️</Text>
+          </View>
+          <Text style={styles.featureText}>Settings</Text>
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#f8fafc',
+  },
+  container: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 20,
+    paddingBottom: 20,
+    backgroundColor: '#f8fafc',
+  },
+  title: {
+    fontSize: 34,
+    fontWeight: '700',
+    marginTop: 12,
+    marginBottom: 8,
+    textAlign: 'center',
+    color: '#0f172a',
+  },
+  subtitle: {
+    fontSize: 18,
+    marginBottom: 24,
+    textAlign: 'center',
+    color: '#64748b',
+  },
+  featureCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    backgroundColor: '#2563eb',
+    borderRadius: 20,
+    paddingVertical: 18,
+    paddingHorizontal: 20,
+    marginBottom: 14,
+    minHeight: 76,
+    width: '100%',
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  iconBox: {
+    width: 60,
+    height: 60,
+    borderRadius: 16,
+    backgroundColor: '#dbeafe',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 18,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  iconText: {
+    fontSize: 28,
+  },
+  featureText: {
+    flex: 1,
+    color: '#ffffff',
+    fontSize: 22,
+    fontWeight: '700',
   },
 });
