@@ -14,6 +14,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { validateEmail } from '../services/emailValidator';
 
 const { auth, db } = require('../firebaseConfig') as {
   auth: Auth;
@@ -23,10 +24,6 @@ const { auth, db } = require('../firebaseConfig') as {
 export default function LoginScreen() {
   const [loginInput, setLoginInput] = useState('');
   const [password, setPassword] = useState('');
-
-  const isEmail = (value: string) => {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-  };
 
   const getEmailFromUsername = async (username: string) => {
     const q = query(collection(db, 'users'), where('username', '==', username));
@@ -40,17 +37,61 @@ export default function LoginScreen() {
     return userData.email || null;
   };
 
-  const handleLogin = async () => {
+  const handleLogin = () => {
     if (!loginInput || !password) {
       Alert.alert('Error', 'Please enter registered email/username.');
       return;
     }
 
-    try {
-      let emailToLogin = loginInput.trim();
+    const trimmedInput = loginInput.trim();
 
-      if (!isEmail(emailToLogin)) {
-        const foundEmail = await getEmailFromUsername(emailToLogin);
+    // This field accepts an email OR a username. An "@" means the user meant
+    // it as an email, so validate it as one instead of looking it up as a
+    // username that could never exist.
+    if (!trimmedInput.includes('@')) {
+      signIn(trimmedInput, false);
+      return;
+    }
+
+    const result = validateEmail(trimmedInput);
+
+    if (!result.valid) {
+      Alert.alert('Invalid Email', result.message as string);
+      return;
+    }
+
+    if (result.suggestion) {
+      Alert.alert(
+        'Check Your Email Address',
+        `You entered ${result.email}. Did you mean ${result.suggestion}?`,
+        [
+          { text: 'Edit', style: 'cancel' },
+          {
+            text: `Use ${result.suggestion}`,
+            onPress: () => {
+              setLoginInput(result.suggestion as string);
+              signIn(result.suggestion as string, true);
+            },
+          },
+          {
+            text: 'Use mine anyway',
+            style: 'destructive',
+            onPress: () => signIn(result.email, true),
+          },
+        ]
+      );
+      return;
+    }
+
+    signIn(result.email, true);
+  };
+
+  const signIn = async (identifier: string, isEmailInput: boolean) => {
+    try {
+      let emailToLogin = identifier;
+
+      if (!isEmailInput) {
+        const foundEmail = await getEmailFromUsername(identifier);
         if (!foundEmail) {
           Alert.alert('Login Failed', 'Username not found.');
           return;

@@ -9,52 +9,67 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import {
-    checkEmailRegistered,
-    sendResetEmailAndLog,
-} from '../services/passwordResetService';
+import { validateEmail } from '../services/emailValidator';
+import { sendResetEmailAndLog } from '../services/passwordResetService';
 
 export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState('');
   const [sending, setSending] = useState(false);
 
-  const isValidEmail = (value) => {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+  const handleSendResetEmail = () => {
+    const result = validateEmail(email);
+
+    if (!result.valid) {
+      Alert.alert('Validation Error', result.message);
+      return;
+    }
+
+    // Format is fine, but the domain looks like a typo of a common provider
+    // (gmail.cm, gmail.co, gmial.com...). Confirm before sending, because a
+    // reset email delivered to the wrong address is lost silently.
+    if (result.suggestion) {
+      Alert.alert(
+        'Check Your Email Address',
+        `You entered ${result.email}. Did you mean ${result.suggestion}?\n\n` +
+          'If the address is wrong, the password reset email will never reach you.',
+        [
+          { text: 'Edit', style: 'cancel' },
+          {
+            text: `Use ${result.suggestion}`,
+            onPress: () => {
+              setEmail(result.suggestion);
+              sendResetEmail(result.suggestion);
+            },
+          },
+          {
+            text: 'Use mine anyway',
+            style: 'destructive',
+            onPress: () => sendResetEmail(result.email),
+          },
+        ]
+      );
+      return;
+    }
+
+    sendResetEmail(result.email);
   };
 
-  const handleSendResetEmail = async () => {
-    const trimmedEmail = email.trim().toLowerCase();
-
-    if (!trimmedEmail) {
-      Alert.alert('Validation Error', 'Please enter your email address.');
-      return;
-    }
-
-    if (!isValidEmail(trimmedEmail)) {
-      Alert.alert('Validation Error', 'Please enter a valid email address.');
-      return;
-    }
-
+  const sendResetEmail = async (trimmedEmail) => {
     setSending(true);
 
     try {
-      const registeredUser = await checkEmailRegistered(trimmedEmail);
-
-      if (!registeredUser.exists) {
-        Alert.alert(
-          'Email Not Found',
-          'Please enter a registered email or Please signup first.'
-        );
-        return;
-      }
-
+      // Deliberately no "is this email registered?" check before sending.
+      // Answering that question lets anyone test addresses against the user
+      // database one at a time, which is why the response below is identical
+      // whether or not the account exists.
       await sendResetEmailAndLog(trimmedEmail);
 
       setEmail('');
 
       Alert.alert(
-        'Reset Email Sent',
-        'A password reset email has been sent to your registered email address.',
+        'Check Your Email',
+        `If ${trimmedEmail} is registered with MediSnap, a password reset link is on its way.\n\n` +
+          'If nothing arrives within a few minutes, check your spam folder or sign up first.',
         [
           {
             text: 'OK',

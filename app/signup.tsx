@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { auth } from '../firebaseConfig';
+import { validateEmail } from '../services/emailValidator';
 
 export default function SignupScreen() {
   const [username, setUsername] = useState('');
@@ -24,22 +25,20 @@ export default function SignupScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  const isValidEmail = (value: string) => {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-  };
-
   const isValidPassword = (value: string) => {
     return /^(?=.*[A-Z])(?=.*\d).{8,}$/.test(value);
   };
 
-  const handleSignup = async () => {
+  const handleSignup = () => {
     if (!username || !email || !password || !confirmPassword) {
       Alert.alert('Error', 'Please fill in all fields.');
       return;
     }
 
-    if (!isValidEmail(email)) {
-      Alert.alert('Error', 'Please enter a valid email address.');
+    const emailResult = validateEmail(email);
+
+    if (!emailResult.valid) {
+      Alert.alert('Error', emailResult.message as string);
       return;
     }
 
@@ -56,10 +55,40 @@ export default function SignupScreen() {
       return;
     }
 
+    // The domain looks like a typo of a common provider. Catch it now: an
+    // account registered on a wrong address can never receive a password
+    // reset email.
+    if (emailResult.suggestion) {
+      Alert.alert(
+        'Check Your Email Address',
+        `You entered ${emailResult.email}. Did you mean ${emailResult.suggestion}?\n\n` +
+          'You will need this address to reset your password later.',
+        [
+          { text: 'Edit', style: 'cancel' },
+          {
+            text: `Use ${emailResult.suggestion}`,
+            onPress: () => {
+              setEmail(emailResult.suggestion as string);
+              createAccount(emailResult.suggestion as string);
+            },
+          },
+          {
+            text: 'Use mine anyway',
+            style: 'destructive',
+            onPress: () => createAccount(emailResult.email),
+          },
+        ]
+      );
+      return;
+    }
+
+    createAccount(emailResult.email);
+  };
+
+  const createAccount = async (normalizedEmail: string) => {
     let secondaryApp: any = null;
 
     try {
-      const normalizedEmail = email.trim().toLowerCase();
       const normalizedUsername = username.trim();
 
       secondaryApp = initializeApp(auth.app.options, `signup-${Date.now()}`);

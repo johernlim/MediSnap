@@ -53,6 +53,8 @@ export default function RootLayout() {
           <Stack.Protected guard={isLoggedIn}>
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="ai-identification" />
+            <Stack.Screen name="chat" />
+            <Stack.Screen name="chat-history" />
             <Stack.Screen name="chatbot" />
             <Stack.Screen name="home" />
             <Stack.Screen name="medications" />

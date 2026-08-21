@@ -55,40 +55,96 @@ export async function generateChatbotReply(userQuestion, conversationMessages = 
   return result.reply;
 }
 
-export async function saveConversationHistory({
+/**
+ * Writes one question-and-answer pair as soon as the reply arrives.
+ *
+ * This replaces the old save-everything-on-Finish-Chat approach. Saving was
+ * previously opt-in via a button at the end of a conversation, so anything the
+ * user walked away from was lost.
+ */
+export async function saveExchange({
   userId,
   sessionId,
   sessionTitle,
-  messages,
+  question,
+  reply,
 }) {
-  const questionAnswerPairs = [];
-  let currentQuestion = null;
-
-  messages.forEach((message) => {
-    if (message.sender === 'user') {
-      currentQuestion = message.text;
-      return;
-    }
-
-    if (message.sender === 'bot' && currentQuestion) {
-      questionAnswerPairs.push({
-        user_question: currentQuestion,
-        chat_response: message.text,
-      });
-      currentQuestion = null;
-    }
+  await addDoc(chatHistoryCollection, {
+    user_id: userId,
+    user_question: question,
+    chat_response: reply,
+    session_id: sessionId,
+    session_title: sessionTitle,
+    chat_time: serverTimestamp(),
   });
+}
 
-  for (const pair of questionAnswerPairs) {
-    await addDoc(chatHistoryCollection, {
-      user_id: userId,
-      user_question: pair.user_question,
-      chat_response: pair.chat_response,
-      session_id: sessionId,
-      session_title: sessionTitle,
-      chat_time: serverTimestamp(),
-    });
+/**
+ * Rolls the flat chat_history rows up into conversations.
+ *
+ * Each row is one exchange; a conversation is every row sharing a session_id.
+ */
+export function groupIntoConversations(chatItems) {
+  const grouped = {};
+
+  for (const item of chatItems || []) {
+    const conversationId = item.session_id || item.id;
+
+    if (!grouped[conversationId]) {
+      grouped[conversationId] = {
+        id: conversationId,
+        title: item.session_title || createConversationTitle(item.user_question),
+        items: [],
+        latestTime: 0,
+      };
+    }
+
+    grouped[conversationId].items.push(item);
+    grouped[conversationId].latestTime = Math.max(
+      grouped[conversationId].latestTime,
+      item.chat_time?.seconds || 0
+    );
   }
+
+  return Object.values(grouped).sort((a, b) => b.latestTime - a.latestTime);
+}
+
+/**
+ * Keyword search across the user's own conversations.
+ *
+ * Filtering happens on the device rather than in Firestore, because Firestore
+ * has no substring or full-text operator — it can match a whole field value,
+ * not a word inside one. The user's own history is small enough that this is
+ * the pragmatic approach.
+ */
+export function filterConversations(conversations, searchText) {
+  const needle = String(searchText || '').trim().toLowerCase();
+
+  if (!needle) {
+    return conversations;
+  }
+
+  return conversations.filter((conversation) => {
+    if (conversation.title.toLowerCase().includes(needle)) {
+      return true;
+    }
+
+    return conversation.items.some(
+      (item) =>
+        String(item.user_question || '').toLowerCase().includes(needle) ||
+        String(item.chat_response || '').toLowerCase().includes(needle)
+    );
+  });
+}
+
+/** Turns the stored exchanges of one conversation into renderable messages. */
+export function toMessages(items) {
+  return [...(items || [])]
+    .sort((a, b) => (a.chat_time?.seconds || 0) - (b.chat_time?.seconds || 0))
+    .flatMap((item) => [
+      { id: `${item.id}-user`, sender: 'user', text: item.user_question },
+      { id: `${item.id}-bot`, sender: 'bot', text: item.chat_response },
+    ]);
 }
 
 export function subscribeToUserChatHistory(userId, onSuccess, onError) {
@@ -109,6 +165,34 @@ export function subscribeToUserChatHistory(userId, onSuccess, onError) {
         });
 
       onSuccess(chatItems);
+    },
+    onError
+  );
+}
+
+/**
+ * Live view of a single conversation.
+ *
+ * Both filters are equality checks, which Firestore serves without a composite
+ * index. Ordering is done on the device for the same reason — adding orderBy
+ * here would require creating an index in the console.
+ */
+export function subscribeToSession(userId, sessionId, onSuccess, onError) {
+  const sessionQuery = query(
+    chatHistoryCollection,
+    where('user_id', '==', userId),
+    where('session_id', '==', sessionId)
+  );
+
+  return onSnapshot(
+    sessionQuery,
+    (snapshot) => {
+      const items = snapshot.docs.map((item) => ({
+        id: item.id,
+        ...item.data(),
+      }));
+
+      onSuccess(items);
     },
     onError
   );

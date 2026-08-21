@@ -29,28 +29,22 @@ async function findUserByEmail(email) {
   };
 }
 
-export async function checkEmailRegistered(email) {
-  const matchedUser = await findUserByEmail(email);
-
-  if (!matchedUser) {
-    return {
-      exists: false,
-      userId: '',
-    };
-  }
-
-  return {
-    exists: true,
-    userId: matchedUser.user_id || matchedUser.userId || matchedUser.id || '',
-  };
-}
-
 export async function sendResetEmailAndLog(email) {
   const matchedUser = await findUserByEmail(email);
   const userId = matchedUser?.user_id || matchedUser?.userId || matchedUser?.id || '';
 
   // Firebase handles the real secure password reset email.
-  await sendPasswordResetEmail(auth, email);
+  try {
+    await sendPasswordResetEmail(auth, email);
+  } catch (error) {
+    // An unregistered address must fail silently. Letting this error reach the
+    // screen would tell an attacker exactly which emails have accounts, which
+    // is the enumeration hole the caller's uniform message exists to close.
+    // Every other failure is real and still propagates.
+    if (error?.code !== 'auth/user-not-found') {
+      throw error;
+    }
+  }
 
   // Approximate expiry time for ERD logging: 1 hour from request time.
   const approximateExpiry = new Date(Date.now() + 60 * 60 * 1000);
