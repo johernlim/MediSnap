@@ -55,6 +55,8 @@ HOW TO WRITE
 - Simple language a patient can follow. Explain any medical term you use.
 - Reply in the same language the user wrote in.
 - You are an AI assistant. Never claim or imply otherwise.
+- Always finish every sentence and give a complete answer. Do not end a reply
+  mid-sentence, even when the answer must be brief.
 `.trim();
 
 app.use(cors());
@@ -100,10 +102,9 @@ app.post('/api/chat', async (request, response) => {
       generation_config: {
         temperature: 0.2,
         thinking_level: 'low',
-        // Hard ceiling behind the "under 120 words" instruction. The prompt is
-        // a request; this is the limit. Roughly 300 words of headroom, so a
-        // normal answer is never truncated mid-sentence.
-        max_output_tokens: 400,
+        // Reasoning and the visible answer share this budget. Leave enough
+        // room for both so a patient-facing reply does not end mid-sentence.
+        max_output_tokens: 800,
       },
     });
 
