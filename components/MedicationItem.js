@@ -1,14 +1,23 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 export default function MedicationItem({ item, onEdit, onDelete }) {
   return (
     <View style={styles.card}>
-      <Text style={styles.name}>{item.med_name}</Text>
-      <Text style={styles.detail}>Dosage: {item.dosage}</Text>
-      <Text style={styles.detail}>Frequency: {item.frequency}</Text>
-      <Text style={styles.description}>
-        {item.med_desc ? item.med_desc : 'No description provided.'}
-      </Text>
+      <View style={styles.header}>
+        {item.med_photo ? (
+          <Image source={{ uri: item.med_photo }} style={styles.photo} />
+        ) : null}
+
+        <View style={styles.headerText}>
+          <Text style={styles.name}>{item.med_name}</Text>
+          <Text style={styles.detail}>Dosage: {item.dosage}</Text>
+          <Text style={styles.detail}>Frequency: {item.frequency}</Text>
+        </View>
+      </View>
+
+      {item.med_desc ? (
+        <Text style={styles.description}>{item.med_desc}</Text>
+      ) : null}
 
       <View style={styles.actions}>
         <Pressable
@@ -34,6 +43,19 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     borderWidth: 1,
     borderColor: '#e2e8f0',
+  },
+  header: {
+    flexDirection: 'row',
+    gap: 14,
+  },
+  photo: {
+    width: 72,
+    height: 72,
+    borderRadius: 10,
+    backgroundColor: '#e2e8f0',
+  },
+  headerText: {
+    flex: 1,
   },
   name: {
     fontSize: 18,

@@ -1,12 +1,12 @@
 import { sendPasswordResetEmail } from 'firebase/auth';
 import {
-    collection,
-    doc,
-    getDocs,
-    query,
-    serverTimestamp,
-    setDoc,
-    where,
+  collection,
+  doc,
+  getDocs,
+  query,
+  serverTimestamp,
+  setDoc,
+  where,
 } from 'firebase/firestore';
 import { auth, db } from '../firebaseConfig';
 

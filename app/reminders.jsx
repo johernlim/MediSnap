@@ -341,6 +341,7 @@ export default function RemindersScreen() {
 
       if (notificationsEnabled && formData.reminder_status === 'Active') {
         notificationIds = await scheduleReminderNotifications({
+          medId: formData.med_id,
           medName: medicationName,
           dosage: medicationDosage,
           repeatType: formData.repeat_type,

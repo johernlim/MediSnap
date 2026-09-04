@@ -13,6 +13,7 @@ import {
   where,
 } from 'firebase/firestore';
 import { Platform } from 'react-native';
+import { isFinalSnooze, planDoseChain } from './doseChainUtils';
 import { db } from '../firebaseConfig';
 
 const remindersCollection = collection(db, 'reminders');
@@ -36,15 +37,75 @@ function parseTimeString(timeValue) {
   };
 }
 
+/**
+ * Deliberately a new channel id rather than the old 'reminders'.
+ *
+ * Android freezes a channel's importance and sound the moment it is created;
+ * calling setNotificationChannelAsync again on an existing channel silently
+ * does nothing. Reusing 'reminders' would leave every existing install on the
+ * old quiet settings forever.
+ */
+const ALARM_CHANNEL_ID = 'medication-alarms';
+
 function addAndroidChannel(trigger) {
   if (Platform.OS === 'android') {
     return {
       ...trigger,
-      channelId: 'reminders',
+      channelId: ALARM_CHANNEL_ID,
     };
   }
 
   return trigger;
+}
+
+/**
+ * Content shared by scheduled and snoozed reminders.
+ *
+ * `sticky` plus `autoDismiss: false` is what keeps the notification on screen:
+ * it cannot be swiped away, and only disappears when the user picks one of the
+ * two actions.
+ */
+function reminderContent({ title, body, data }) {
+  return {
+    title,
+    body,
+    sound: true,
+    vibrate: [0, 500, 500, 500, 500, 500],
+    priority: Notifications.AndroidNotificationPriority.MAX,
+    sticky: true,
+    autoDismiss: false,
+    categoryIdentifier: REMINDER_CATEGORY,
+    data,
+  };
+}
+
+/** Identifies a medication reminder so taps can be routed to the dose screen. */
+export const REMINDER_CATEGORY = 'medication-reminder';
+export const ACTION_TAKEN = 'TAKEN';
+export const ACTION_SNOOZE = 'SNOOZE';
+
+/**
+ * Attaches the two action buttons to medication reminders.
+ *
+ * "Remind me later" opens the app because the user has to choose how long.
+ * "I've taken it" is handled without opening the app, which is the nicer
+ * behaviour but only works while the app is running or backgrounded — if it
+ * has been swiped away, Android may not deliver the response to JavaScript.
+ * The dose screen carries the same button so there is always a path that logs.
+ */
+export async function registerReminderCategory() {
+  await Notifications.setNotificationCategoryAsync(REMINDER_CATEGORY, [
+    {
+      identifier: ACTION_TAKEN,
+      buttonTitle: "I've taken it",
+      options: { opensAppToForeground: false },
+    },
+    {
+      identifier: ACTION_SNOOZE,
+      buttonTitle: 'Remind me later',
+      options: { opensAppToForeground: true },
+    },
+  ]);
 }
 
 export async function setupReminderNotifications() {
@@ -55,18 +116,35 @@ export async function setupReminderNotifications() {
   }
 
   if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('reminders', {
-      name: 'Medication Reminders',
-      importance: Notifications.AndroidImportance.HIGH,
-      vibrationPattern: [0, 250, 250, 250],
+    await Notifications.setNotificationChannelAsync(ALARM_CHANNEL_ID, {
+      name: 'Medication Alarms',
+      description: 'Loud reminders for medication doses.',
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 500, 500, 500, 500, 500],
       lightColor: '#2563eb',
+      // Routes the sound through the alarm stream instead of the notification
+      // stream, so it plays at alarm volume, and enforceAudibility asks the
+      // system to sound it even when the phone is set to silent.
+      audioAttributes: {
+        usage: Notifications.AndroidAudioUsage.ALARM,
+        contentType: Notifications.AndroidAudioContentType.SONIFICATION,
+        flags: {
+          enforceAudibility: true,
+          requestHardwareAudioVideoSynchronization: false,
+        },
+      },
+      bypassDnd: true,
     });
   }
+
+  await registerReminderCategory();
 
   return true;
 }
 
+
 export async function scheduleReminderNotifications({
+  medId,
   medName,
   dosage,
   repeatType,
@@ -122,11 +200,21 @@ export async function scheduleReminderNotifications({
     }
 
     const notificationId = await Notifications.scheduleNotificationAsync({
-      content: {
+      content: reminderContent({
         title: 'Medication Reminder',
         body: bodyText,
-        sound: true,
-      },
+        // Carried on the notification itself so the dose screen can render
+        // without looking the reminder up, and so the snooze clash check has
+        // the schedule to compare against.
+        data: {
+          type: REMINDER_CATEGORY,
+          medId: medId || '',
+          medName: medName || '',
+          dosage: dosage || '',
+          reminderTimes: reminderTimes || [],
+          scheduledTime: trimmedTime,
+        },
+      }),
       trigger,
     });
 
@@ -283,6 +371,7 @@ export async function rescheduleAllUserReminderNotifications(userId) {
     };
 
     const newNotificationIds = await scheduleReminderNotifications({
+      medId: reminderData.med_id,
       medName: medicationInfo.med_name,
       dosage: medicationInfo.dosage,
       repeatType: reminderData.repeat_type,
@@ -296,4 +385,153 @@ export async function rescheduleAllUserReminderNotifications(userId) {
       updated_at: serverTimestamp(),
     });
   }
+}
+
+/**
+ * Schedules a single notification at an exact moment.
+ *
+ * Used for both halves of a shift: the moved dose today, and the backups that
+ * keep the normal time firing on the days after. Both are one-offs, because a
+ * repeating trigger cannot be told to skip an occurrence.
+ */
+async function scheduleOneOff({ date, title, body, data }) {
+  return Notifications.scheduleNotificationAsync({
+    content: reminderContent({ title, body, data }),
+    trigger: addAndroidChannel({ type: 'date', date }),
+  });
+}
+
+function reminderBody(medName, dosage) {
+  return dosage
+    ? `Time to take ${medName} with Dosage: ${dosage}.`
+    : `Time to take ${medName}.`;
+}
+
+function notificationData({ medId, medName, dosage, reminderTimes, scheduledTime }) {
+  return {
+    type: REMINDER_CATEGORY,
+    medId: medId || '',
+    medName: medName || '',
+    dosage: dosage || '',
+    reminderTimes: reminderTimes || [],
+    scheduledTime: scheduledTime || '',
+  };
+}
+
+
+
+/* ------------------------------------------------------------------------ *
+ * The follow-up chain
+ * ------------------------------------------------------------------------ */
+
+/**
+ * Schedules everything that should happen if a dose alarm goes unanswered.
+ *
+ * All of it is handed to the OS at once, so the chain runs whether or not the
+ * app is ever opened. Answering the alarm cancels whatever is left.
+ */
+export async function scheduleDoseChain({
+  medId,
+  medName,
+  dosage,
+  reminderTimes,
+  scheduledTime,
+  alarmAt,
+}) {
+  const chain = planDoseChain(alarmAt);
+  const ids = [];
+
+  for (const step of chain) {
+    const isMissed = step.kind === 'missed';
+
+    const body = isMissed
+      ? dosage
+        ? `You did not take ${medName} (${dosage}), scheduled for ${scheduledTime}.`
+        : `You did not take ${medName}, scheduled for ${scheduledTime}.`
+      : dosage
+        ? `Reminder ${step.attempt}: Time to take ${medName} with Dosage: ${dosage}.`
+        : `Reminder ${step.attempt}: Time to take ${medName}.`;
+
+    const id = await Notifications.scheduleNotificationAsync({
+      content: {
+        ...reminderContent({
+          title: isMissed ? 'Missed dose' : 'Medication Reminder',
+          body,
+          data: {
+            ...notificationData({
+              medId,
+              medName,
+              dosage,
+              reminderTimes,
+              scheduledTime,
+            }),
+            attempt: step.attempt,
+            missed: isMissed,
+          },
+        }),
+        // A missed notice is a statement, not a prompt — it carries no action
+        // buttons and can be swiped away like any ordinary notification.
+        ...(isMissed
+          ? { categoryIdentifier: undefined, sticky: false, autoDismiss: true }
+          : {}),
+      },
+      trigger: addAndroidChannel({ type: 'date', date: step.at }),
+    });
+
+    ids.push(id);
+  }
+
+  return ids;
+}
+
+/** One manual "Remind me later", a fixed 30 minutes from the tap. */
+export async function scheduleManualSnooze({
+  medId,
+  medName,
+  dosage,
+  reminderTimes,
+  scheduledTime,
+  attempt,
+  remindAt,
+}) {
+  const final = isFinalSnooze(attempt);
+
+  const body = dosage
+    ? `Reminder ${attempt}: Time to take ${medName} with Dosage: ${dosage}.`
+    : `Reminder ${attempt}: Time to take ${medName}.`;
+
+  return Notifications.scheduleNotificationAsync({
+    content: reminderContent({
+      title: 'Medication Reminder',
+      body,
+      data: {
+        ...notificationData({ medId, medName, dosage, reminderTimes, scheduledTime }),
+        attempt,
+        // Tells the next screen this is the last chance before the dose is
+        // recorded as missed.
+        lastChance: final,
+      },
+    }),
+    trigger: addAndroidChannel({ type: 'date', date: remindAt }),
+  });
+}
+
+/** The closing notification when the snooze budget runs out. */
+export async function scheduleMissedNotice({ medName, dosage, scheduledTime, at }) {
+  const body = dosage
+    ? `You did not take ${medName} (${dosage}), scheduled for ${scheduledTime}.`
+    : `You did not take ${medName}, scheduled for ${scheduledTime}.`;
+
+  return Notifications.scheduleNotificationAsync({
+    content: {
+      title: 'Missed dose',
+      body,
+      sound: true,
+      priority: Notifications.AndroidNotificationPriority.HIGH,
+      sticky: false,
+      autoDismiss: true,
+      data: { type: REMINDER_CATEGORY, missed: true },
+    },
+    trigger: addAndroidChannel({ type: 'date', date: at }),
+  });
 }

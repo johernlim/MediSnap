@@ -1,0 +1,13 @@
+{
+  "theme": "neutral",
+  "look": "classic",
+  "fontFamily": "Arial, sans-serif",
+  "themeVariables": {
+    "background": "#ffffff",
+    "primaryColor": "#f7fbff",
+    "primaryTextColor": "#17202a",
+    "primaryBorderColor": "#2f5d7c",
+    "lineColor": "#52616b",
+    "tertiaryColor": "#ffffff"
+  }
+}

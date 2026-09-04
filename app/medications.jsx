@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -16,24 +16,41 @@ import MedicationForm from '../components/MedicationForm';
 import MedicationItem from '../components/MedicationItem';
 import { auth } from '../firebaseConfig';
 import {
+  DEFAULT_DOSE_UNIT,
+  FREQUENCY_PRESETS,
+  composeDosage,
+  composeFrequency,
+  parseDosage,
+  parseFrequency,
+  validateDoseAmount,
+  validateTimesPerDay,
+} from '../services/medicationFormat';
+import {
   createMedication,
   deleteMedicationById,
   subscribeToUserMedications,
   updateMedicationById,
 } from '../services/medicationService';
+import {
+  captureMedicationPhoto,
+  pickMedicationPhoto,
+} from '../services/medicationPhoto';
 
 const emptyForm = {
   med_name: '',
-  dosage: '',
-  frequency: '',
+  dose_amount: '',
+  dose_unit: DEFAULT_DOSE_UNIT,
+  freq_mode: 'preset',
+  freq_times: '1',
   med_desc: '',
+  med_photo: '',
 };
 
+// Description is optional, so it has no error slot.
 const emptyErrors = {
   med_name: '',
-  dosage: '',
-  frequency: '',
-  med_desc: '',
+  dose_amount: '',
+  freq_times: '',
 };
 
 export default function MedicationsScreen() {
@@ -44,6 +61,9 @@ export default function MedicationsScreen() {
   const [originalData, setOriginalData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [photoBusy, setPhotoBusy] = useState(false);
+
+  const scrollRef = useRef(null);
 
   useEffect(() => {
     const currentUser = auth.currentUser;
@@ -72,9 +92,8 @@ export default function MedicationsScreen() {
   const validateForm = () => {
     const newErrors = {
       med_name: formData.med_name.trim() ? '' : 'Please fill this box',
-      dosage: formData.dosage.trim() ? '' : 'Please fill this box',
-      frequency: formData.frequency.trim() ? '' : 'Please fill this box',
-      med_desc: formData.med_desc.trim() ? '' : 'Please fill this box',
+      dose_amount: validateDoseAmount(formData.dose_amount),
+      freq_times: validateTimesPerDay(formData.freq_times),
     };
 
     setErrors(newErrors);
@@ -89,13 +108,28 @@ export default function MedicationsScreen() {
 
     return (
       formData.med_name.trim() !== originalData.med_name.trim() ||
-      formData.dosage.trim() !== originalData.dosage.trim() ||
-      formData.frequency.trim() !== originalData.frequency.trim() ||
-      formData.med_desc.trim() !== originalData.med_desc.trim()
+      formData.dose_amount.trim() !== originalData.dose_amount.trim() ||
+      formData.dose_unit !== originalData.dose_unit ||
+      formData.freq_times.trim() !== originalData.freq_times.trim() ||
+      formData.med_desc.trim() !== originalData.med_desc.trim() ||
+      formData.med_photo !== originalData.med_photo
     );
   };
 
   const handleChange = (field, value) => {
+    // The frequency chips write through a pseudo-field so one handler can set
+    // both the mode and the number.
+    if (field === 'freq_preset') {
+      setFormData((prev) => ({
+        ...prev,
+        freq_mode: value === 'other' ? 'other' : 'preset',
+        freq_times: value === 'other' ? '' : value,
+      }));
+
+      setErrors((prev) => ({ ...prev, freq_times: '' }));
+      return;
+    }
+
     setFormData((prev) => ({
       ...prev,
       [field]: value,
@@ -103,7 +137,7 @@ export default function MedicationsScreen() {
 
     setErrors((prev) => ({
       ...prev,
-      [field]: value.trim() ? '' : prev[field],
+      [field]: String(value).trim() ? '' : prev[field],
     }));
   };
 
@@ -114,6 +148,42 @@ export default function MedicationsScreen() {
     setOriginalData(null);
   };
 
+  // Both photo sources share the same handling: a null result means the user
+  // backed out, and a throw carries a message worth showing (permission
+  // refused, or an image too large even after compression).
+  // One "Add Photo" button on the form; the camera-or-gallery choice happens
+  // here rather than by giving the form a second control.
+  const handleAddPhoto = () => {
+    Alert.alert('Add Photo', 'Where should the picture come from?', [
+      {
+        text: 'Take Photo',
+        onPress: () => runPhotoPicker(captureMedicationPhoto),
+      },
+      {
+        text: 'Choose from Gallery',
+        onPress: () => runPhotoPicker(pickMedicationPhoto),
+      },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
+
+  const runPhotoPicker = async (picker) => {
+    setPhotoBusy(true);
+
+    try {
+      const dataUri = await picker();
+
+      if (dataUri) {
+        setFormData((prev) => ({ ...prev, med_photo: dataUri }));
+      }
+    } catch (error) {
+      console.error('Failed to attach medication photo:', error);
+      Alert.alert('Photo', error?.message || 'Unable to use that photo.');
+    } finally {
+      setPhotoBusy(false);
+    }
+  };
+
   const handleSubmit = async () => {
     const currentUser = auth.currentUser;
 
@@ -122,9 +192,7 @@ export default function MedicationsScreen() {
       return;
     }
 
-    const isValid = validateForm();
-
-    if (!isValid) {
+    if (!validateForm()) {
       return;
     }
 
@@ -136,11 +204,14 @@ export default function MedicationsScreen() {
     setSaving(true);
 
     try {
+      // Structured inputs are composed back into the single strings the rest
+      // of the app already reads, so nothing downstream needs changing.
       const payload = {
         med_name: formData.med_name.trim(),
-        dosage: formData.dosage.trim(),
-        frequency: formData.frequency.trim(),
+        dosage: composeDosage(formData.dose_amount, formData.dose_unit),
+        frequency: composeFrequency(Number(formData.freq_times)),
         med_desc: formData.med_desc.trim(),
+        med_photo: formData.med_photo || '',
         user_id: currentUser.uid,
       };
 
@@ -162,51 +233,79 @@ export default function MedicationsScreen() {
   };
 
   const handleEdit = (item) => {
+    const parsedDose = parseDosage(item.dosage);
+    const parsedTimes = parseFrequency(item.frequency);
+
+    // parseFrequency returns null for older free-text values such as
+    // "Twice daily after meals". Guessing a number there would quietly change
+    // the user's data, so the choice is left blank and validation asks for it.
+    const isPreset =
+      parsedTimes !== null && FREQUENCY_PRESETS.includes(parsedTimes);
+
     const selectedData = {
       med_name: item.med_name || '',
-      dosage: item.dosage || '',
-      frequency: item.frequency || '',
+      dose_amount: parsedDose.amount,
+      dose_unit: parsedDose.unit,
+      freq_mode: parsedTimes !== null && !isPreset ? 'other' : 'preset',
+      freq_times: parsedTimes !== null ? String(parsedTimes) : '',
       med_desc: item.med_desc || '',
+      med_photo: item.med_photo || '',
     };
 
     setEditingId(item.id);
     setOriginalData(selectedData);
     setErrors(emptyErrors);
     setFormData(selectedData);
+
+    // The form lives at the top of this scroll view. Without this, tapping
+    // Edit on a medication further down the list changes the form off-screen
+    // and reads as a button that does nothing.
+    scrollRef.current?.scrollTo({ y: 0, animated: true });
+
+    if (!parsedDose.matched || parsedTimes === null) {
+      Alert.alert(
+        'Check the dosage and frequency',
+        'This medication was saved in the older free-text format, so some fields could not be filled in automatically. Please re-select them before updating.'
+      );
+    }
   };
 
   const handleDelete = (id) => {
-    Alert.alert('Delete medication', 'Are you sure you want to delete this medication? It will also delete the medication reminder!!!', [
-      {
-        text: 'Cancel',
-        style: 'cancel',
-      },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await deleteMedicationById(id);
-
-            if (editingId === id) {
-              resetForm();
-            }
-
-            Alert.alert('Deleted', 'Medication deleted successfully.');
-          } catch (error) {
-            console.error('Failed to delete medication:', error);
-            Alert.alert('Error', 'Unable to delete medication right now.');
-          }
+    Alert.alert(
+      'Delete medication',
+      'Are you sure you want to delete this medication? It will also delete the medication reminder!!!',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
         },
-      },
-    ]);
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteMedicationById(id);
+
+              if (editingId === id) {
+                resetForm();
+              }
+
+              Alert.alert('Deleted', 'Medication deleted successfully.');
+            } catch (error) {
+              console.error('Failed to delete medication:', error);
+              Alert.alert('Error', 'Unable to delete medication right now.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const currentUser = auth.currentUser;
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.container}>
         <View style={styles.topBar}>
           <Pressable style={styles.backButton} onPress={() => router.back()}>
             <Text style={styles.backButtonText}>Back</Text>
@@ -230,6 +329,8 @@ export default function MedicationsScreen() {
               onChange={handleChange}
               onSubmit={handleSubmit}
               onCancel={resetForm}
+              onAddPhoto={handleAddPhoto}
+              photoBusy={photoBusy}
               editingId={editingId}
               saving={saving}
             />

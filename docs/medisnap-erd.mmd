@@ -1,0 +1,95 @@
+---
+title: MediSnap Entity Relationship Diagram
+---
+erDiagram
+    USER ||--o{ MEDICATION : owns
+    USER ||--o{ REMINDER : sets
+    USER ||--o{ AI_IDENTIFICATION : performs
+    USER ||--o{ CHAT_HISTORY : asks
+    USER ||--o{ PASSWORD_RESET : requests
+    USER ||--o{ DOSE_LOG : records
+    MEDICATION ||--o{ REMINDER : "is reminded by"
+    MEDICATION ||--o{ DOSE_LOG : "is logged in"
+
+    USER {
+        string user_id PK
+        string username
+        string email
+        string full_name
+        number age
+        string gender
+        number height
+        number weight
+        boolean notifications_enabled
+    }
+
+    MEDICATION {
+        string med_id PK
+        string user_id FK
+        string med_name
+        string dosage
+        string frequency
+        string med_desc
+        string med_photo
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    REMINDER {
+        string reminder_id PK
+        string med_id FK
+        string user_id FK
+        string repeat_type
+        number times_per_period
+        array reminder_times
+        string reminder_status
+        array notification_ids
+        string start_date
+        string weekly_day
+        number monthly_day
+        map shifted_today
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    DOSE_LOG {
+        string log_id PK
+        string user_id FK
+        string med_id FK
+        string med_name
+        string dosage
+        string scheduled_time
+        string status
+        number snooze_minutes
+        timestamp snooze_until
+        string snooze_notification_id
+        timestamp logged_at
+    }
+
+    AI_IDENTIFICATION {
+        string ai_id PK
+        string user_id FK
+        string image_path
+        string predicted_result
+        timestamp created_at
+    }
+
+    CHAT_HISTORY {
+        string chat_id PK
+        string user_id FK
+        string user_question
+        string chat_response
+        string session_id
+        string session_title
+        timestamp chat_time
+    }
+
+    PASSWORD_RESET {
+        string reset_id PK
+        string user_id FK
+        string requested_email
+        string reset_token
+        timestamp expiry_time
+        number used_flag
+        timestamp created_at
+    }

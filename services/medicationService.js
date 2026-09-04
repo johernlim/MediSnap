@@ -12,6 +12,7 @@ import {
   where,
 } from 'firebase/firestore';
 import { auth, db } from '../firebaseConfig';
+import { getPendingSnoozeNotificationIds } from './doseLogService';
 
 const medicationsCollection = collection(db, 'medications');
 const remindersCollection = collection(db, 'reminders');
@@ -94,6 +95,20 @@ export async function deleteMedicationById(id) {
 
     await cancelScheduledNotifications(reminderData.notification_ids || []);
     await deleteDoc(doc(db, 'reminders', reminderItem.id));
+  }
+
+  // A snooze is a one-off notification that never belonged to a reminder's
+  // notification_ids, so deleting the reminders above cannot have cancelled
+  // it. Without this, a deleted medication could still buzz an hour later.
+  try {
+    const pendingSnoozeIds = await getPendingSnoozeNotificationIds(
+      currentUser.uid,
+      id
+    );
+
+    await cancelScheduledNotifications(pendingSnoozeIds);
+  } catch (error) {
+    console.error('Failed to cancel pending snooze notifications:', error);
   }
 
   return deleteDoc(medicationDoc);

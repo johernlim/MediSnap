@@ -14,8 +14,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import NotificationSettingsCard from '../components/NotificationSettingsCard';
+import StreakBadge from '../components/StreakBadge';
 import ProfileEditForm from '../components/ProfileEditForm';
 import ProfileViewCard from '../components/ProfileViewCard';
+import { getStreak } from '../services/streakService';
 import { auth } from '../firebaseConfig';
 import {
     disableAllUserReminderNotifications,
@@ -30,6 +32,8 @@ import {
 
 export default function SettingsScreen() {
   const [profile, setProfile] = useState(getDefaultProfile());
+  const [streak, setStreak] = useState(0);
+  const [streakLoading, setStreakLoading] = useState(true);
   const [formData, setFormData] = useState(getDefaultProfile());
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -190,6 +194,20 @@ export default function SettingsScreen() {
 
   const currentUser = auth.currentUser;
 
+  useEffect(() => {
+    const currentUser = auth.currentUser;
+
+    if (!currentUser) {
+      setStreakLoading(false);
+      return;
+    }
+
+    getStreak(currentUser.uid)
+      .then((result) => setStreak(result.streak))
+      .catch((error) => console.error('Failed to load streak:', error))
+      .finally(() => setStreakLoading(false));
+  }, []);
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
@@ -200,6 +218,8 @@ export default function SettingsScreen() {
         </View>
 
         <Text style={styles.title}>Settings</Text>
+
+        <StreakBadge streak={streak} loading={streakLoading} />
         <Text style={styles.subtitle}>
           View profile, update personal details, manage notification preference, and log out.
         </Text>
