@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import type { Auth } from 'firebase/auth';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import type { Firestore } from 'firebase/firestore';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs, limit, query, where } from 'firebase/firestore';
 import { useState } from 'react';
 import {
   Alert,
@@ -26,7 +26,14 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
 
   const getEmailFromUsername = async (username: string) => {
-    const q = query(collection(db, 'users'), where('username', '==', username));
+    // limit(1) is required by the security rules: a username lookup must run
+    // before sign-in, so the only thing stopping the whole users collection
+    // being downloaded is that unbounded queries are refused.
+    const q = query(
+      collection(db, 'users'),
+      where('username', '==', username),
+      limit(1)
+    );
     const querySnapshot = await getDocs(q);
 
     if (querySnapshot.empty) {

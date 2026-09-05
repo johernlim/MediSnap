@@ -19,6 +19,59 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { auth } from '../firebaseConfig';
 import { validateEmail } from '../services/emailValidator';
 
+/**
+ * Firebase error codes turned into something the user can act on.
+ *
+ * error.message is a developer string -- "Firebase: Error
+ * (auth/email-already-in-use)." -- which tells the person nothing about what
+ * to do next.
+ */
+function describeSignupError(error: any) {
+  const code: string = error?.code || '';
+
+  switch (code) {
+    case 'auth/email-already-in-use':
+      return {
+        code,
+        title: 'Email Already Registered',
+        message:
+          'An account already exists with this email address. Please log in instead, or use Forgot Password if you cannot remember it.',
+      };
+    case 'auth/invalid-email':
+      return {
+        code,
+        title: 'Invalid Email',
+        message: 'That email address is not valid. Please check it and try again.',
+      };
+    case 'auth/weak-password':
+      return {
+        code,
+        title: 'Weak Password',
+        message:
+          'Please choose a stronger password: at least 8 characters, with an uppercase letter and a number.',
+      };
+    case 'auth/network-request-failed':
+      return {
+        code,
+        title: 'No Connection',
+        message:
+          'Unable to reach the server. Check your internet connection and try again.',
+      };
+    case 'auth/too-many-requests':
+      return {
+        code,
+        title: 'Too Many Attempts',
+        message: 'Too many attempts from this device. Please wait a moment and try again.',
+      };
+    default:
+      return {
+        code,
+        title: 'Signup Failed',
+        message: 'Unable to create account right now. Please try again.',
+      };
+  }
+}
+
 export default function SignupScreen() {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
@@ -106,12 +159,21 @@ export default function SignupScreen() {
       );
       const uid = userCredential.user.uid;
 
-      await setDoc(doc(secondaryDb, 'users', uid), {
-        user_id: uid,
-        userId: uid,
-        username: normalizedUsername,
-        email: normalizedEmail,
-      });
+      try {
+        await setDoc(doc(secondaryDb, 'users', uid), {
+          user_id: uid,
+          userId: uid,
+          username: normalizedUsername,
+          email: normalizedEmail,
+        });
+      } catch (profileError) {
+        // The auth account was created but its users record was not. Left
+        // alone that address is taken forever while being invisible to the
+        // app: login by username cannot find it, and the reset screen reports
+        // it as unregistered. Removing it lets the user simply try again.
+        await userCredential.user.delete().catch(() => {});
+        throw profileError;
+      }
 
       await secondaryAuth.signOut();
       await deleteApp(secondaryApp);
@@ -130,10 +192,22 @@ export default function SignupScreen() {
         } catch {}
       }
 
-      Alert.alert(
-        'Signup Failed',
-        error?.message || 'Unable to create account right now.'
-      );
+      console.error('Signup failed:', error?.code, error?.message);
+
+      const described = describeSignupError(error);
+
+      if (described.code === 'auth/email-already-in-use') {
+        Alert.alert(described.title, described.message, [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Go to Login',
+            onPress: () => router.replace('/' as never),
+          },
+        ]);
+        return;
+      }
+
+      Alert.alert(described.title, described.message);
     }
   };
 

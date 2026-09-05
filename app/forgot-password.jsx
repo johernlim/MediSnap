@@ -58,18 +58,28 @@ export default function ForgotPasswordScreen() {
     setSending(true);
 
     try {
-      // Deliberately no "is this email registered?" check before sending.
-      // Answering that question lets anyone test addresses against the user
-      // database one at a time, which is why the response below is identical
-      // whether or not the account exists.
-      await sendResetEmailAndLog(trimmedEmail);
+      const { registered } = await sendResetEmailAndLog(trimmedEmail);
+
+      if (!registered) {
+        Alert.alert(
+          'Email Not Registered',
+          `The ${trimmedEmail} is not registered. Please sign up first!`,
+          [
+            {
+              text: 'OK',
+              onPress: () => router.replace('/signup'),
+            },
+          ]
+        );
+        return;
+      }
 
       setEmail('');
 
       Alert.alert(
         'Check Your Email',
-        `If ${trimmedEmail} is registered with MediSnap, a password reset link is on its way.\n\n` +
-          'If nothing arrives within a few minutes, check your spam folder or sign up first.',
+        `A password reset link has been sent to ${trimmedEmail}.\n\n` +
+          'If nothing arrives within a few minutes, check your spam folder.',
         [
           {
             text: 'OK',
