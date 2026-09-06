@@ -1,8 +1,7 @@
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Platform,
   Pressable,
@@ -14,50 +13,26 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AIIdentificationForm from '../components/AIIdentificationForm';
-import AIIdentificationHistoryItem from '../components/AIIdentificationHistoryItem';
-import { auth } from '../firebaseConfig';
-import {
-  identifyMedicineFromImage,
-  saveIdentificationResult,
-  subscribeToUserIdentificationHistory,
-} from '../services/aiIdentificationService';
+import { identifyMedicineFromImage } from '../services/aiIdentificationService';
+import { useLanguage } from '../contexts/LanguageContext';
+import { useThemedStyles } from '../hooks/use-themed-styles';
+import { stopMedicineSpeech } from '../services/speechService';
 
 export default function AIIdentificationScreen() {
+  const { language: preferredLanguage, t } = useLanguage();
+  const styles = useThemedStyles(baseStyles);
   const [selectedImage, setSelectedImage] = useState(null);
   const [predictedResult, setPredictedResult] = useState('');
-  const [history, setHistory] = useState([]);
-  const [loadingHistory, setLoadingHistory] = useState(true);
   const [identifying, setIdentifying] = useState(false);
-
-  useEffect(() => {
-    const currentUser = auth.currentUser;
-
-    if (!currentUser) {
-      setLoadingHistory(false);
-      return undefined;
-    }
-
-    const unsubscribe = subscribeToUserIdentificationHistory(
-      currentUser.uid,
-      (items) => {
-        setHistory(items);
-        setLoadingHistory(false);
-      },
-      (error) => {
-        console.error('Failed to load identification history:', error);
-        Alert.alert('Error', 'Unable to load identification history right now.');
-        setLoadingHistory(false);
-      }
-    );
-
-    return unsubscribe;
-  }, []);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [refinementMode, setRefinementMode] = useState(false);
+  const [refinementDismissed, setRefinementDismissed] = useState(false);
 
   const requestCameraPermission = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
 
     if (!permission.granted) {
-      Alert.alert('Permission required', 'Camera permission is needed to take a photo.');
+      Alert.alert(t('permissionRequired'), t('cameraPermission'));
       return false;
     }
 
@@ -73,118 +48,112 @@ export default function AIIdentificationScreen() {
 
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ['images'],
-      allowsEditing: true,
-      quality: 0.8,
+      allowsEditing: false,
+      quality: 1,
     });
 
     if (!result.canceled && result.assets && result.assets.length > 0) {
+        await stopMedicineSpeech().catch(() => {});
       setSelectedImage(result.assets[0]);
-      setPredictedResult('');
+      if (!refinementMode) setPredictedResult('');
+      setErrorMessage('');
     }
   };
 
   const pickFromGallery = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
-      allowsEditing: true,
-      quality: 0.8,
+      allowsEditing: false,
+      quality: 1,
     });
 
     if (!result.canceled && result.assets && result.assets.length > 0) {
+        await stopMedicineSpeech().catch(() => {});
       setSelectedImage(result.assets[0]);
-      setPredictedResult('');
+      if (!refinementMode) setPredictedResult('');
+      setErrorMessage('');
     }
   };
 
   const handleIdentify = async () => {
-    const currentUser = auth.currentUser;
-
-    if (!currentUser) {
-      Alert.alert('Login required', 'Please log in to use AI identification.');
-      return;
-    }
-
     if (!selectedImage?.uri) {
-      Alert.alert('No image selected', 'Please capture or upload an image first.');
+      Alert.alert(t('noImage'), t('selectImageFirst'));
       return;
     }
 
+      await stopMedicineSpeech().catch(() => {});
+    const previousEvidence = refinementMode
+      ? predictedResult?.detections?.find((item) => item.visual_evidence)?.visual_evidence
+      : null;
     setIdentifying(true);
+    if (!refinementMode) setPredictedResult('');
+    setErrorMessage('');
 
     try {
-      const result = await identifyMedicineFromImage(selectedImage);
+      const result = await identifyMedicineFromImage(selectedImage, preferredLanguage, previousEvidence);
       setPredictedResult(result);
+      setRefinementMode(false);
+      setRefinementDismissed(false);
 
-      await saveIdentificationResult({
-        user_id: currentUser.uid,
-        image_uri: selectedImage.uri,
-        predicted_result: result,
-      });
-
-      Alert.alert('Identification complete', 'Medicine result saved successfully.');
     } catch (error) {
-      console.error('Failed to identify medicine:', error);
-      Alert.alert('Error', 'Unable to identify the medicine right now.');
+      setErrorMessage(error.message || t('identifyUnavailable'));
     } finally {
       setIdentifying(false);
     }
   };
 
-  const currentUser = auth.currentUser;
+  const startRefinement = () => {
+    setRefinementMode(true);
+    setRefinementDismissed(false);
+    setSelectedImage(null);
+    setErrorMessage('');
+  };
+
+  const finishWithoutRefinement = () => {
+    setRefinementMode(false);
+    setRefinementDismissed(true);
+  };
+
+  const safelyPick = async (picker) => {
+    try { await picker(); } catch { setErrorMessage(t('pickerUnavailable')); }
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.topBar}>
           <Pressable style={styles.backButton} onPress={() => router.back()}>
-            <Text style={styles.backButtonText}>Back</Text>
+            <Text style={styles.backButtonText}>{t('back')}</Text>
           </Pressable>
         </View>
 
-        <Text style={styles.title}>AI Medicine Identification</Text>
+        <Text style={styles.title}>{t('identification')}</Text>
         <Text style={styles.subtitle}>
-          Capture or upload a medicine image, preview it, identify it, and save the result.
+          {t('recognitionSubtitle')}
         </Text>
 
-        {!currentUser ? (
-          <View style={styles.emptyBox}>
-            <Text style={styles.emptyText}>No authenticated user found.</Text>
-          </View>
-        ) : (
           <>
             <AIIdentificationForm
               selectedImage={selectedImage}
               predictedResult={predictedResult}
               identifying={identifying}
-              onPickCamera={pickFromCamera}
-              onPickGallery={pickFromGallery}
+              onPickCamera={() => safelyPick(pickFromCamera)}
+              onPickGallery={() => safelyPick(pickFromGallery)}
               onIdentify={handleIdentify}
+              preferredLanguage={preferredLanguage}
+              refinementMode={refinementMode}
+              refinementDismissed={refinementDismissed}
+              onStartRefinement={startRefinement}
+              onFinish={finishWithoutRefinement}
             />
-
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Identification History</Text>
-              <Text style={styles.countText}>{history.length} item(s)</Text>
-            </View>
-
-            {loadingHistory ? (
-              <ActivityIndicator size="large" color="#2563eb" style={styles.loader} />
-            ) : history.length === 0 ? (
-              <View style={styles.emptyBox}>
-                <Text style={styles.emptyText}>No identification history yet.</Text>
-              </View>
-            ) : (
-              history.map((item) => (
-                <AIIdentificationHistoryItem key={item.id} item={item} />
-              ))
-            )}
+            {!!errorMessage && <Text accessibilityRole="alert" style={styles.errorText}>{errorMessage}</Text>}
           </>
-        )}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#f8fafc',
@@ -222,34 +191,5 @@ const styles = StyleSheet.create({
     marginBottom: 22,
     lineHeight: 23,
   },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 8,
-    marginBottom: 14,
-  },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#0f172a',
-  },
-  countText: {
-    fontSize: 14,
-    color: '#64748b',
-  },
-  loader: {
-    marginTop: 24,
-  },
-  emptyBox: {
-    backgroundColor: '#ffffff',
-    borderRadius: 14,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  emptyText: {
-    color: '#64748b',
-    fontSize: 16,
-  },
+  errorText: { color: '#b91c1c', fontSize: 16, marginBottom: 16, lineHeight: 23 },
 });

@@ -19,8 +19,12 @@ import {
   groupIntoConversations,
   subscribeToUserChatHistory,
 } from '../services/chatbotService';
+import { useLanguage } from '../contexts/LanguageContext';
+import { useThemedStyles } from '../hooks/use-themed-styles';
 
 export default function ChatHistoryScreen() {
+  const { language, t } = useLanguage();
+  const styles = useThemedStyles(baseStyles);
   const [chatHistory, setChatHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [searchText, setSearchText] = useState('');
@@ -41,13 +45,13 @@ export default function ChatHistoryScreen() {
       },
       (error) => {
         console.error('Failed to load chat history:', error);
-        Alert.alert('Error', 'Unable to load chat history right now.');
+        Alert.alert(t('error'), t('unableLoadChat'));
         setLoadingHistory(false);
       }
     );
 
     return unsubscribe;
-  }, [currentUser]);
+  }, [currentUser, t]);
 
   const conversations = useMemo(
     () => groupIntoConversations(chatHistory),
@@ -63,10 +67,11 @@ export default function ChatHistoryScreen() {
 
   const formatPreviewTime = (chatTime) => {
     if (!chatTime?.seconds) {
-      return 'Just now';
+      return t('justNow');
     }
 
-    return new Date(chatTime.seconds * 1000).toLocaleString();
+    return new Date(chatTime.seconds * 1000).toLocaleString(
+      language === 'zh' ? 'zh-CN' : language === 'ms' ? 'ms-MY' : 'en-MY');
   };
 
   return (
@@ -74,24 +79,24 @@ export default function ChatHistoryScreen() {
       <View style={styles.container}>
         <View style={styles.topBar}>
           <Pressable style={styles.backButton} onPress={() => router.back()}>
-            <Text style={styles.backButtonText}>Back</Text>
+            <Text style={styles.backButtonText}>{t('back')}</Text>
           </Pressable>
         </View>
 
         <View style={styles.headerRow}>
-          <Text style={styles.title}>Chat History</Text>
+          <Text style={styles.title}>{t('chatHistory')}</Text>
           {!loadingHistory && conversations.length > 0 ? (
             <Text style={styles.countText}>
               {isSearching
-                ? `${visibleConversations.length} of ${conversations.length}`
-                : `${conversations.length} chat(s)`}
+                ? `${visibleConversations.length}/${conversations.length}`
+                : t('chatCount', { count: conversations.length })}
             </Text>
           ) : null}
         </View>
 
         {!currentUser ? (
           <View style={styles.emptyBox}>
-            <Text style={styles.emptyText}>No authenticated user found.</Text>
+            <Text style={styles.emptyText}>{t('noUser')}</Text>
           </View>
         ) : loadingHistory ? (
           <ActivityIndicator size="large" color="#2563eb" style={styles.loader} />
@@ -101,7 +106,7 @@ export default function ChatHistoryScreen() {
               <View style={styles.searchRow}>
                 <TextInput
                   style={styles.searchInput}
-                  placeholder="Search your past questions..."
+                  placeholder={t('searchChats')}
                   placeholderTextColor="#94a3b8"
                   value={searchText}
                   onChangeText={setSearchText}
@@ -115,7 +120,7 @@ export default function ChatHistoryScreen() {
                     style={styles.clearButton}
                     onPress={() => setSearchText('')}
                   >
-                    <Text style={styles.clearButtonText}>Clear</Text>
+                    <Text style={styles.clearButtonText}>{t('clear')}</Text>
                   </Pressable>
                 ) : null}
               </View>
@@ -129,14 +134,13 @@ export default function ChatHistoryScreen() {
               {conversations.length === 0 ? (
                 <View style={styles.emptyBox}>
                   <Text style={styles.emptyText}>
-                    No chat history yet. Go back and start a new chat — it saves
-                    automatically.
+                    {t('noChatHistory')}
                   </Text>
                 </View>
               ) : visibleConversations.length === 0 ? (
                 <View style={styles.emptyBox}>
                   <Text style={styles.emptyText}>
-                    No chats match &quot;{searchText.trim()}&quot;.
+                    {t('chatsMatch', { query: searchText.trim() })}
                   </Text>
                 </View>
               ) : (
@@ -158,10 +162,10 @@ export default function ChatHistoryScreen() {
                         {conversation.title}
                       </Text>
                       <Text style={styles.historyPreview} numberOfLines={2}>
-                        {lastItem?.chat_response || 'No chatbot response available.'}
+                        {lastItem?.chat_response || t('noChatResponse')}
                       </Text>
                       <Text style={styles.historyMeta}>
-                        {conversation.items.length} question(s) •{' '}
+                        {conversation.items.length} {t('questions')} •{' '}
                         {formatPreviewTime(lastItem?.chat_time)}
                       </Text>
                     </Pressable>
@@ -176,7 +180,7 @@ export default function ChatHistoryScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#f8fafc',

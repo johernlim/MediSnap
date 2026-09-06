@@ -17,6 +17,8 @@ import NotificationSettingsCard from '../components/NotificationSettingsCard';
 import StreakBadge from '../components/StreakBadge';
 import ProfileEditForm from '../components/ProfileEditForm';
 import ProfileViewCard from '../components/ProfileViewCard';
+import LanguageSelector from '../components/LanguageSelector';
+import ThemeSelector from '../components/ThemeSelector';
 import { getStreak } from '../services/streakService';
 import { auth } from '../firebaseConfig';
 import {
@@ -29,8 +31,15 @@ import {
     updateUserProfile,
     validateProfileData,
 } from '../services/settingsService';
+import { getLanguageOption } from '../services/languageService';
+import { useLanguage } from '../contexts/LanguageContext';
+import { useAppTheme } from '../contexts/ThemeContext';
+import { useThemedStyles } from '../hooks/use-themed-styles';
 
 export default function SettingsScreen() {
+  const { changeLanguage, t } = useLanguage();
+  const { theme, changeTheme } = useAppTheme();
+  const styles = useThemedStyles(baseStyles);
   const [profile, setProfile] = useState(getDefaultProfile());
   const [streak, setStreak] = useState(0);
   const [streakLoading, setStreakLoading] = useState(true);
@@ -39,6 +48,8 @@ export default function SettingsScreen() {
   const [loading, setLoading] = useState(true);
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingNotifications, setSavingNotifications] = useState(false);
+  const [savingLanguage, setSavingLanguage] = useState(false);
+  const [savingTheme, setSavingTheme] = useState(false);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -55,14 +66,14 @@ export default function SettingsScreen() {
         setFormData(userProfile);
       } catch (error) {
         console.error('Failed to load profile:', error);
-        Alert.alert('Error', 'Unable to load profile right now.');
+        Alert.alert(t('error'), t('unableLoadProfile'));
       } finally {
         setLoading(false);
       }
     };
 
     loadProfile();
-  }, []);
+  }, [t]);
 
   const handleEditProfile = () => {
     setFormData(profile);
@@ -85,14 +96,14 @@ export default function SettingsScreen() {
     const currentUser = auth.currentUser;
 
     if (!currentUser) {
-      Alert.alert('Login required', 'Please log in again.');
+      Alert.alert(t('loginRequired'), t('pleaseLoginAgain'));
       return;
     }
 
     const validationMessage = validateProfileData(formData);
 
     if (validationMessage) {
-      Alert.alert('Invalid Input', validationMessage);
+      Alert.alert(t('invalidInput'), validationMessage);
       return;
     }
 
@@ -120,10 +131,10 @@ export default function SettingsScreen() {
       setFormData(updatedProfile);
       setEditing(false);
 
-      Alert.alert('Success', 'Profile updated successfully.');
+      Alert.alert(t('success'), t('profileUpdated'));
     } catch (error) {
       console.error('Failed to save profile:', error);
-      Alert.alert('Error', 'Unable to save profile right now.');
+      Alert.alert(t('error'), t('unableSaveProfile'));
     } finally {
       setSavingProfile(false);
     }
@@ -133,7 +144,7 @@ export default function SettingsScreen() {
     const currentUser = auth.currentUser;
 
     if (!currentUser) {
-      Alert.alert('Login required', 'Please log in again.');
+      Alert.alert(t('loginRequired'), t('pleaseLoginAgain'));
       return;
     }
 
@@ -163,10 +174,10 @@ export default function SettingsScreen() {
       }));
 
       Alert.alert(
-        'Success',
+        t('success'),
         value
-          ? 'Notifications enabled and active reminders rescheduled.'
-          : 'Notifications disabled and scheduled reminders canceled.'
+          ? t('notificationsOn')
+          : t('notificationsOff')
       );
     } catch (error) {
       console.error('Failed to save notification settings:', error);
@@ -176,9 +187,47 @@ export default function SettingsScreen() {
         notifications_enabled: previousValue,
       }));
 
-      Alert.alert('Error', 'Unable to update notification settings right now.');
+      Alert.alert(t('error'), t('unableUpdateNotifications'));
     } finally {
       setSavingNotifications(false);
+    }
+  };
+
+  const handleLanguageChange = async (value) => {
+    const currentUser = auth.currentUser;
+    if (!currentUser || savingLanguage || value === profile.preferred_language) return;
+
+    const previousValue = profile.preferred_language;
+    setProfile((current) => ({ ...current, preferred_language: value }));
+    setSavingLanguage(true);
+    try {
+      await changeLanguage(value, currentUser.uid);
+      setFormData((current) => ({ ...current, preferred_language: value }));
+      Alert.alert(t('success'), `${t('language')}: ${getLanguageOption(value).nativeLabel}`);
+    } catch (error) {
+      console.error('Failed to save language:', error);
+      setProfile((current) => ({ ...current, preferred_language: previousValue }));
+      Alert.alert(t('error'), t('languageSaveFailed'));
+    } finally {
+      setSavingLanguage(false);
+    }
+  };
+
+  const handleThemeChange = async (value) => {
+    const currentUser = auth.currentUser;
+    if (!currentUser || savingTheme || value === (profile.preferred_theme || theme)) return;
+    const previousValue = profile.preferred_theme || theme;
+    setProfile((current) => ({ ...current, preferred_theme: value }));
+    setSavingTheme(true);
+    try {
+      await changeTheme(value, currentUser.uid);
+      setFormData((current) => ({ ...current, preferred_theme: value }));
+    } catch (error) {
+      console.error('Failed to save theme:', error);
+      setProfile((current) => ({ ...current, preferred_theme: previousValue }));
+      Alert.alert(t('error'), t('themeSaveFailed'));
+    } finally {
+      setSavingTheme(false);
     }
   };
 
@@ -188,7 +237,7 @@ export default function SettingsScreen() {
       router.replace('/');
     } catch (error) {
       console.error('Logout failed:', error);
-      Alert.alert('Error', 'Unable to log out right now.');
+      Alert.alert(t('error'), t('unableLogout'));
     }
   };
 
@@ -198,7 +247,6 @@ export default function SettingsScreen() {
     const currentUser = auth.currentUser;
 
     if (!currentUser) {
-      setStreakLoading(false);
       return;
     }
 
@@ -213,11 +261,11 @@ export default function SettingsScreen() {
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.topBar}>
           <Pressable style={styles.backButton} onPress={() => router.back()}>
-            <Text style={styles.backButtonText}>Back</Text>
+            <Text style={styles.backButtonText}>{t('back')}</Text>
           </Pressable>
         </View>
 
-        <Text style={styles.title}>Settings</Text>
+        <Text style={styles.title}>{t('settings')}</Text>
 
         <StreakBadge streak={streak} loading={streakLoading} />
         <Text style={styles.subtitle}>
@@ -226,7 +274,7 @@ export default function SettingsScreen() {
 
         {!currentUser ? (
           <View style={styles.emptyBox}>
-            <Text style={styles.emptyText}>No authenticated user found.</Text>
+            <Text style={styles.emptyText}>{t('noUser')}</Text>
           </View>
         ) : loading ? (
           <ActivityIndicator size="large" color="#2563eb" style={styles.loader} />
@@ -250,8 +298,27 @@ export default function SettingsScreen() {
               onToggle={handleToggleNotifications}
             />
 
+            <View style={styles.languageCard}>
+              <Text style={styles.cardTitle}>{t('language')}</Text>
+              <Text style={styles.cardDescription}>{t('languageHelp')}</Text>
+              <LanguageSelector
+                value={profile.preferred_language}
+                onChange={handleLanguageChange}
+                disabled={savingLanguage}
+              />
+              {savingLanguage && <ActivityIndicator color="#2563eb" style={styles.languageLoader} />}
+            </View>
+
+            <View style={styles.languageCard}>
+              <Text style={styles.cardTitle}>{t('appearance')}</Text>
+              <Text style={styles.cardDescription}>{t('appearanceHelp')}</Text>
+              <ThemeSelector value={profile.preferred_theme || theme}
+                onChange={handleThemeChange} disabled={savingTheme} />
+              {savingTheme && <ActivityIndicator color="#2563eb" style={styles.languageLoader} />}
+            </View>
+
             <Pressable style={styles.logoutButton} onPress={handleLogout}>
-              <Text style={styles.logoutButtonText}>Logout</Text>
+              <Text style={styles.logoutButtonText}>{t('logout')}</Text>
             </Pressable>
           </>
         )}
@@ -260,7 +327,7 @@ export default function SettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#f8fafc',
@@ -312,6 +379,17 @@ const styles = StyleSheet.create({
     color: '#64748b',
     fontSize: 16,
   },
+  languageCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 14,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    marginTop: 16,
+  },
+  cardTitle: { fontSize: 22, fontWeight: '700', color: '#0f172a', marginBottom: 6 },
+  cardDescription: { fontSize: 14, lineHeight: 21, color: '#64748b', marginBottom: 14 },
+  languageLoader: { marginTop: 12 },
   logoutButton: {
     backgroundColor: '#dc2626',
     borderRadius: 14,

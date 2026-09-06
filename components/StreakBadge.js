@@ -1,5 +1,7 @@
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import { describeStreak, milestoneReached } from '../services/streakUtils';
+import { milestoneReached } from '../services/streakUtils';
+import { useLanguage } from '../contexts/LanguageContext';
+import { useThemedStyles } from '../hooks/use-themed-styles';
 
 /**
  * The adherence streak, in the shape people already recognise from messaging
@@ -10,6 +12,8 @@ import { describeStreak, milestoneReached } from '../services/streakUtils';
  * the run is intact without reading anything.
  */
 export default function StreakBadge({ streak, loading }) {
+  const { t } = useLanguage();
+  const styles = useThemedStyles(baseStyles);
   const alive = streak > 0;
   const milestone = milestoneReached(streak);
 
@@ -29,17 +33,17 @@ export default function StreakBadge({ streak, loading }) {
                 {streak}
               </Text>
               <Text style={[styles.unit, !alive && styles.unitCold]}>
-                {streak === 1 ? 'day' : 'days'}
+                {streak === 1 ? t('day') : t('days')}
               </Text>
 
               {milestone ? (
                 <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{milestone}-day club</Text>
+                  <Text style={styles.badgeText}>{milestone} {t('days')}</Text>
                 </View>
               ) : null}
             </View>
 
-            <Text style={styles.caption}>{describeStreak(streak)}</Text>
+            <Text style={styles.caption}>{streak === 0 ? t('streakStart') : `${streak} ${t('daysInRow')}`}</Text>
           </>
         )}
       </View>
@@ -47,7 +51,7 @@ export default function StreakBadge({ streak, loading }) {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',

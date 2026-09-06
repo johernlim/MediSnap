@@ -14,8 +14,12 @@ import {
   groupIntoConversations,
   subscribeToUserChatHistory,
 } from '../services/chatbotService';
+import { useLanguage } from '../contexts/LanguageContext';
+import { useThemedStyles } from '../hooks/use-themed-styles';
 
 export default function ChatbotScreen() {
+  const { language, t } = useLanguage();
+  const styles = useThemedStyles(baseStyles);
   const [chatHistory, setChatHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
 
@@ -50,10 +54,11 @@ export default function ChatbotScreen() {
   );
 
   const historySubtitle = () => {
-    if (loadingHistory) return 'Loading...';
-    if (conversationCount === 0) return 'No saved chats yet';
-    if (conversationCount === 1) return '1 saved chat';
-    return `${conversationCount} saved chats`;
+    if (loadingHistory) return t('loading');
+    if (conversationCount === 0) return t('noSavedChats');
+    if (language === 'zh') return `${conversationCount} ${t('savedChats')}`;
+    if (conversationCount === 1) return `1 ${t('savedChat')}`;
+    return `${conversationCount} ${t('savedChats')}`;
   };
 
   return (
@@ -61,24 +66,23 @@ export default function ChatbotScreen() {
       <View style={styles.container}>
         <View style={styles.topBar}>
           <Pressable style={styles.backButton} onPress={() => router.back()}>
-            <Text style={styles.backButtonText}>Back</Text>
+            <Text style={styles.backButtonText}>{t('back')}</Text>
           </Pressable>
         </View>
 
-        <Text style={styles.title}>Medicine Chatbot</Text>
+        <Text style={styles.title}>{t('medicineChatbot')}</Text>
 
         <Text style={styles.subtitle}>
-          Ask about dosages, side effects, storage or interactions.
+          {t('chatbotSubtitle')}
         </Text>
 
         <Text style={styles.disclaimer}>
-          AI-generated information. Not medical advice — confirm with a doctor or
-          pharmacist before changing any medication.
+          {t('medicalDisclaimer')}
         </Text>
 
         {!currentUser ? (
           <View style={styles.emptyBox}>
-            <Text style={styles.emptyText}>No authenticated user found.</Text>
+            <Text style={styles.emptyText}>{t('noUser')}</Text>
           </View>
         ) : (
           <View style={styles.actions}>
@@ -86,14 +90,14 @@ export default function ChatbotScreen() {
               style={styles.primaryButton}
               onPress={() => router.push(`/chat?sessionId=chat-${Date.now()}`)}
             >
-              <Text style={styles.primaryButtonText}>Start New Chat</Text>
+              <Text style={styles.primaryButtonText}>{t('startNewChat')}</Text>
             </Pressable>
 
             <Pressable
               style={styles.secondaryButton}
               onPress={() => router.push('/chat-history')}
             >
-              <Text style={styles.secondaryButtonText}>Chat History</Text>
+              <Text style={styles.secondaryButtonText}>{t('chatHistory')}</Text>
               <Text style={styles.secondaryButtonHint}>{historySubtitle()}</Text>
             </Pressable>
           </View>
@@ -103,7 +107,7 @@ export default function ChatbotScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#f8fafc',

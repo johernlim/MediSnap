@@ -24,7 +24,7 @@ export function createConversationTitle(question) {
   return `${trimmedQuestion.slice(0, 40)}...`;
 }
 
-export async function generateChatbotReply(userQuestion, conversationMessages = []) {
+export async function generateChatbotReply(userQuestion, conversationMessages = [], language = 'en') {
   const apiBaseUrl = process.env.EXPO_PUBLIC_MEDISNAP_API_URL?.replace(/\/$/, '');
 
   if (!apiBaseUrl) {
@@ -39,6 +39,7 @@ export async function generateChatbotReply(userQuestion, conversationMessages = 
     body: JSON.stringify({
       question: userQuestion,
       history: conversationMessages,
+      language,
     }),
   });
 

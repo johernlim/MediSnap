@@ -1,6 +1,10 @@
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useLanguage } from '../contexts/LanguageContext';
+import { useThemedStyles } from '../hooks/use-themed-styles';
 
 export default function MedicationItem({ item, onEdit, onDelete }) {
+  const { t } = useLanguage();
+  const styles = useThemedStyles(baseStyles);
   return (
     <View style={styles.card}>
       <View style={styles.header}>
@@ -10,8 +14,8 @@ export default function MedicationItem({ item, onEdit, onDelete }) {
 
         <View style={styles.headerText}>
           <Text style={styles.name}>{item.med_name}</Text>
-          <Text style={styles.detail}>Dosage: {item.dosage}</Text>
-          <Text style={styles.detail}>Frequency: {item.frequency}</Text>
+          <Text style={styles.detail}>{t('dosage')}: {item.dosage}</Text>
+          <Text style={styles.detail}>{t('frequency')}: {item.frequency}</Text>
         </View>
       </View>
 
@@ -24,18 +28,18 @@ export default function MedicationItem({ item, onEdit, onDelete }) {
           style={[styles.editButton, styles.actionButtonSpacing]}
           onPress={() => onEdit(item)}
         >
-          <Text style={styles.editButtonText}>Edit</Text>
+          <Text style={styles.editButtonText}>{t('edit')}</Text>
         </Pressable>
 
         <Pressable style={styles.deleteButton} onPress={() => onDelete(item.id)}>
-          <Text style={styles.deleteButtonText}>Delete</Text>
+          <Text style={styles.deleteButtonText}>{t('delete')}</Text>
         </Pressable>
       </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   card: {
     backgroundColor: '#ffffff',
     borderRadius: 14,

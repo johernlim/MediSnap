@@ -23,6 +23,8 @@ import {
   subscribeToSession,
   toMessages,
 } from '../services/chatbotService';
+import { useLanguage } from '../contexts/LanguageContext';
+import { useThemedStyles } from '../hooks/use-themed-styles';
 
 /**
  * One screen for every conversation, new or saved.
@@ -33,6 +35,8 @@ import {
  * chat-session screen.
  */
 export default function ChatScreen() {
+  const { language, t } = useLanguage();
+  const styles = useThemedStyles(baseStyles);
   const params = useLocalSearchParams();
 
   const sessionIdRef = useRef(
@@ -72,13 +76,13 @@ export default function ChatScreen() {
       },
       (error) => {
         console.error('Failed to load conversation:', error);
-        Alert.alert('Error', 'Unable to load this conversation right now.');
+        Alert.alert(t('error'), t('unableLoadChat'));
         setLoading(false);
       }
     );
 
     return unsubscribe;
-  }, [currentUser]);
+  }, [currentUser, t]);
 
   // Hand the in-flight question over to its saved row only once that row has
   // actually arrived. Clearing it any earlier makes the message vanish for a
@@ -103,19 +107,19 @@ export default function ChatScreen() {
 
   const title = useMemo(() => {
     const saved = items.find((item) => item.session_title);
-    return saved?.session_title || localTitle || 'New Chat';
-  }, [items, localTitle]);
+    return saved?.session_title || localTitle || t('newChat');
+  }, [items, localTitle, t]);
 
   const handleSend = async () => {
     const trimmedQuestion = inputText.trim();
 
     if (!currentUser) {
-      Alert.alert('Login required', 'Please log in to use the chatbot.');
+      Alert.alert(t('loginRequired'), t('loginFirst'));
       return;
     }
 
     if (!trimmedQuestion) {
-      Alert.alert('Empty message', 'Please enter a medicine-related question.');
+      Alert.alert(t('emptyMessage'), t('enterMedicineQuestion'));
       return;
     }
 
@@ -133,7 +137,7 @@ export default function ChatScreen() {
     setSending(true);
 
     try {
-      const reply = await generateChatbotReply(trimmedQuestion, historyForModel);
+      const reply = await generateChatbotReply(trimmedQuestion, historyForModel, language);
 
       await saveExchange({
         userId: currentUser.uid,
@@ -148,7 +152,7 @@ export default function ChatScreen() {
       // Give the question back rather than losing what they typed.
       setPending(null);
       setInputText(trimmedQuestion);
-      Alert.alert('Error', 'Unable to get chatbot response right now.');
+      Alert.alert(t('error'), t('unableChatReply'));
     } finally {
       setSending(false);
     }
@@ -164,7 +168,7 @@ export default function ChatScreen() {
         <View style={styles.container}>
           <View style={styles.topBar}>
             <Pressable style={styles.backButton} onPress={() => router.back()}>
-              <Text style={styles.backButtonText}>Back</Text>
+              <Text style={styles.backButtonText}>{t('back')}</Text>
             </Pressable>
           </View>
 
@@ -173,8 +177,7 @@ export default function ChatScreen() {
           </Text>
 
           <Text style={styles.disclaimer}>
-            AI-generated information. Not medical advice — confirm with a doctor
-            or pharmacist before changing any medication.
+            {t('medicalDisclaimer')}
           </Text>
 
           {loading ? (
@@ -205,7 +208,7 @@ export default function ChatScreen() {
               <View style={styles.loadingRow}>
                 <ActivityIndicator size="small" color="#2563eb" />
                 <Text style={styles.loadingText}>
-                  Generating chatbot response...
+                  {t('generating')}
                 </Text>
               </View>
             ) : null}
@@ -215,6 +218,9 @@ export default function ChatScreen() {
               onChangeText={setInputText}
               onSend={handleSend}
               disabled={sending}
+              placeholder={t('askQuestion')}
+              sendLabel={t('send')}
+              sendingLabel={t('generating')}
             />
           </View>
         </View>
@@ -223,7 +229,7 @@ export default function ChatScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#f8fafc',

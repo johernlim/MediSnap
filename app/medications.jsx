@@ -12,6 +12,8 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useLanguage } from '../contexts/LanguageContext';
+import { useThemedStyles } from '../hooks/use-themed-styles';
 import MedicationForm from '../components/MedicationForm';
 import MedicationItem from '../components/MedicationItem';
 import { auth } from '../firebaseConfig';
@@ -54,6 +56,8 @@ const emptyErrors = {
 };
 
 export default function MedicationsScreen() {
+  const { t } = useLanguage();
+  const styles = useThemedStyles(baseStyles);
   const [medications, setMedications] = useState([]);
   const [formData, setFormData] = useState(emptyForm);
   const [errors, setErrors] = useState(emptyErrors);
@@ -81,7 +85,7 @@ export default function MedicationsScreen() {
       },
       (error) => {
         console.error('Failed to load medications:', error);
-        Alert.alert('Error', 'Unable to load medications right now.');
+        Alert.alert(t('error'), t('unableLoadMedications'));
         setLoading(false);
       }
     );
@@ -154,16 +158,16 @@ export default function MedicationsScreen() {
   // One "Add Photo" button on the form; the camera-or-gallery choice happens
   // here rather than by giving the form a second control.
   const handleAddPhoto = () => {
-    Alert.alert('Add Photo', 'Where should the picture come from?', [
+    Alert.alert(t('addPhoto'), t('choosePhotoSource'), [
       {
-        text: 'Take Photo',
+        text: t('takePhoto'),
         onPress: () => runPhotoPicker(captureMedicationPhoto),
       },
       {
-        text: 'Choose from Gallery',
+        text: t('chooseGallery'),
         onPress: () => runPhotoPicker(pickMedicationPhoto),
       },
-      { text: 'Cancel', style: 'cancel' },
+      { text: t('cancel'), style: 'cancel' },
     ]);
   };
 
@@ -178,7 +182,7 @@ export default function MedicationsScreen() {
       }
     } catch (error) {
       console.error('Failed to attach medication photo:', error);
-      Alert.alert('Photo', error?.message || 'Unable to use that photo.');
+      Alert.alert(t('photo'), error?.message || t('photoUnavailable'));
     } finally {
       setPhotoBusy(false);
     }
@@ -188,7 +192,7 @@ export default function MedicationsScreen() {
     const currentUser = auth.currentUser;
 
     if (!currentUser) {
-      Alert.alert('Login required', 'Please log in to manage medications.');
+      Alert.alert(t('loginRequired'), t('manageMedicationsLogin'));
       return;
     }
 
@@ -197,7 +201,7 @@ export default function MedicationsScreen() {
     }
 
     if (editingId && !hasChanges()) {
-      Alert.alert('No Changes', 'Please update after edited the data!!!');
+      Alert.alert(t('noChanges'), t('updateOneField'));
       return;
     }
 
@@ -217,16 +221,16 @@ export default function MedicationsScreen() {
 
       if (editingId) {
         await updateMedicationById(editingId, payload);
-        Alert.alert('Updated', 'Medication updated successfully.');
+        Alert.alert(t('updated'), t('medicationUpdated'));
       } else {
         await createMedication(payload);
-        Alert.alert('Added', 'Medication added successfully.');
+        Alert.alert(t('added'), t('medicationAdded'));
       }
 
       resetForm();
     } catch (error) {
       console.error('Failed to save medication:', error);
-      Alert.alert('Error', 'Unable to save medication right now.');
+      Alert.alert(t('error'), t('unableSaveMedication'));
     } finally {
       setSaving(false);
     }
@@ -272,15 +276,15 @@ export default function MedicationsScreen() {
 
   const handleDelete = (id) => {
     Alert.alert(
-      'Delete medication',
-      'Are you sure you want to delete this medication? It will also delete the medication reminder!!!',
+      t('deleteMedication'),
+      t('deleteMedicationQuestion'),
       [
         {
-          text: 'Cancel',
+          text: t('cancel'),
           style: 'cancel',
         },
         {
-          text: 'Delete',
+          text: t('delete'),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -290,10 +294,10 @@ export default function MedicationsScreen() {
                 resetForm();
               }
 
-              Alert.alert('Deleted', 'Medication deleted successfully.');
+              Alert.alert(t('deleted'), t('medicationDeleted'));
             } catch (error) {
               console.error('Failed to delete medication:', error);
-              Alert.alert('Error', 'Unable to delete medication right now.');
+              Alert.alert(t('error'), t('unableDeleteMedication'));
             }
           },
         },
@@ -308,18 +312,18 @@ export default function MedicationsScreen() {
       <ScrollView ref={scrollRef} contentContainerStyle={styles.container}>
         <View style={styles.topBar}>
           <Pressable style={styles.backButton} onPress={() => router.back()}>
-            <Text style={styles.backButtonText}>Back</Text>
+            <Text style={styles.backButtonText}>{t('back')}</Text>
           </Pressable>
         </View>
 
-        <Text style={styles.title}>Medication Manager</Text>
+        <Text style={styles.title}>{t('medicationManager')}</Text>
         <Text style={styles.subtitle}>
-          Add, update, and track medications for the current logged-in user.
+          {t('medicationSubtitle')}
         </Text>
 
         {!currentUser ? (
           <View style={styles.emptyBox}>
-            <Text style={styles.emptyText}>No authenticated user found.</Text>
+            <Text style={styles.emptyText}>{t('noUser')}</Text>
           </View>
         ) : (
           <>
@@ -336,7 +340,7 @@ export default function MedicationsScreen() {
             />
 
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Your Medications</Text>
+              <Text style={styles.sectionTitle}>{t('yourMedications')}</Text>
               <Text style={styles.countText}>{medications.length} item(s)</Text>
             </View>
 
@@ -344,7 +348,7 @@ export default function MedicationsScreen() {
               <ActivityIndicator size="large" color="#2563eb" style={styles.loader} />
             ) : medications.length === 0 ? (
               <View style={styles.emptyBox}>
-                <Text style={styles.emptyText}>No medications added yet.</Text>
+                <Text style={styles.emptyText}>{t('noMedications')}</Text>
               </View>
             ) : (
               medications.map((item) => (
@@ -363,7 +367,7 @@ export default function MedicationsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#f8fafc',

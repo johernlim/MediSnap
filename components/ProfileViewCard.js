@@ -1,6 +1,10 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useLanguage } from '../contexts/LanguageContext';
+import { useThemedStyles } from '../hooks/use-themed-styles';
 
 export default function ProfileViewCard({ profile, onEdit }) {
+  const { t } = useLanguage();
+  const styles = useThemedStyles(baseStyles);
   const renderRow = (label, value) => (
     <View style={styles.row}>
       <Text style={styles.label}>{label}</Text>
@@ -10,24 +14,24 @@ export default function ProfileViewCard({ profile, onEdit }) {
 
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>Profile Information</Text>
+      <Text style={styles.title}>{t('profileInformation')}</Text>
 
-      {renderRow('Username', profile.username)}
-      {renderRow('Email', profile.email)}
-      {renderRow('Full Name', profile.full_name)}
-      {renderRow('Age', profile.age)}
-      {renderRow('Gender', profile.gender)}
-      {renderRow('Height', profile.height ? `${profile.height} cm` : '')}
-      {renderRow('Weight', profile.weight ? `${profile.weight} kg` : '')}
+      {renderRow(t('username'), profile.username)}
+      {renderRow(t('email'), profile.email)}
+      {renderRow(t('fullName'), profile.full_name)}
+      {renderRow(t('age'), profile.age)}
+      {renderRow(t('gender'), profile.gender)}
+      {renderRow(t('height'), profile.height ? `${profile.height} cm` : '')}
+      {renderRow(t('weight'), profile.weight ? `${profile.weight} kg` : '')}
 
       <Pressable style={styles.editButton} onPress={onEdit}>
-        <Text style={styles.editButtonText}>Edit Profile</Text>
+        <Text style={styles.editButtonText}>{t('editProfile')}</Text>
       </Pressable>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   card: {
     backgroundColor: '#ffffff',
     borderRadius: 14,

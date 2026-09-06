@@ -1,5 +1,6 @@
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import { milestoneMessage } from '../services/streakUtils';
+import { useLanguage } from '../contexts/LanguageContext';
+import { useThemedStyles } from '../hooks/use-themed-styles';
 
 /**
  * Shown once when a streak first reaches 7, 30 or 100 days.
@@ -8,9 +9,9 @@ import { milestoneMessage } from '../services/streakUtils';
  * app where the message is about the person rather than the medicine.
  */
 export default function MilestoneModal({ milestone, visible, onClose }) {
+  const { t } = useLanguage();
+  const styles = useThemedStyles(baseStyles);
   if (!milestone) return null;
-
-  const { title, body, cta } = milestoneMessage(milestone);
 
   return (
     <Modal
@@ -26,13 +27,13 @@ export default function MilestoneModal({ milestone, visible, onClose }) {
           </View>
 
           <Text style={styles.count}>{milestone}</Text>
-          <Text style={styles.countUnit}>days in a row</Text>
+          <Text style={styles.countUnit}>{t('daysInRow')}</Text>
 
-          <Text style={styles.title}>{title}</Text>
-          <Text style={styles.body}>{body}</Text>
+          <Text style={styles.title}>{t('milestoneTitle')}</Text>
+          <Text style={styles.body}>{t('milestoneBody', { days: milestone })}</Text>
 
           <Pressable style={styles.button} onPress={onClose}>
-            <Text style={styles.buttonText}>{cta}</Text>
+            <Text style={styles.buttonText}>{t('keepGoing')}</Text>
           </Pressable>
         </View>
       </View>
@@ -40,7 +41,7 @@ export default function MilestoneModal({ milestone, visible, onClose }) {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(15, 23, 42, 0.55)',

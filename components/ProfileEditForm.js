@@ -8,6 +8,8 @@ import {
     TextInput,
     View,
 } from 'react-native';
+import { useLanguage } from '../contexts/LanguageContext';
+import { useThemedStyles } from '../hooks/use-themed-styles';
 
 const ageOptions = Array.from({ length: 120 }, (_, index) => index + 1);
 const heightOptions = Array.from({ length: 81 }, (_, index) => index + 140);
@@ -21,6 +23,8 @@ export default function ProfileEditForm({
   onSave,
   onCancel,
 }) {
+  const { t } = useLanguage();
+  const styles = useThemedStyles(baseStyles);
   const [pickerVisible, setPickerVisible] = useState(false);
   const [pickerTitle, setPickerTitle] = useState('');
   const [pickerField, setPickerField] = useState('');
@@ -29,12 +33,12 @@ export default function ProfileEditForm({
 
   const fieldDisplayValues = useMemo(
     () => ({
-      age: formData.age ? String(formData.age) : 'Select age',
-      gender: formData.gender || 'Select gender',
-      height: formData.height ? `${formData.height} cm` : 'Select height',
-      weight: formData.weight ? `${formData.weight} kg` : 'Select weight',
+      age: formData.age ? String(formData.age) : t('selectAge'),
+      gender: formData.gender ? (formData.gender === 'Male' ? t('male') : t('female')) : t('selectGender'),
+      height: formData.height ? `${formData.height} cm` : t('selectHeight'),
+      weight: formData.weight ? `${formData.weight} kg` : t('selectWeight'),
     }),
-    [formData.age, formData.gender, formData.height, formData.weight]
+    [formData.age, formData.gender, formData.height, formData.weight, t]
   );
 
   const openPicker = (field, title, options, unit = '') => {
@@ -78,23 +82,23 @@ export default function ProfileEditForm({
   return (
     <>
       <View style={styles.card}>
-        <Text style={styles.title}>Edit Profile</Text>
+        <Text style={styles.title}>{t('editProfile')}</Text>
 
-        <Text style={styles.label}>Username</Text>
+        <Text style={styles.label}>{t('username')}</Text>
         <TextInput
           style={styles.input}
           value={formData.username}
           onChangeText={(value) => onChange('username', value)}
-          placeholder="Enter username"
+          placeholder={t('enterUsername')}
           placeholderTextColor="#94a3b8"
         />
 
-        <Text style={styles.label}>Email</Text>
+        <Text style={styles.label}>{t('email')}</Text>
         <TextInput
           style={[styles.input, styles.readOnlyInput]}
           value={formData.email}
           editable={false}
-          placeholder="Email"
+          placeholder={t('email')}
           placeholderTextColor="#94a3b8"
         />
 
@@ -102,28 +106,28 @@ export default function ProfileEditForm({
           Email is shown from your account record and is not edited in this form.
         </Text>
 
-        <Text style={styles.label}>Full Name</Text>
+        <Text style={styles.label}>{t('fullName')}</Text>
         <TextInput
           style={styles.input}
           value={formData.full_name}
           onChangeText={(value) => onChange('full_name', value)}
-          placeholder="Enter full name"
+          placeholder={t('enterFullName')}
           placeholderTextColor="#94a3b8"
         />
 
-        {renderSelector('Age', fieldDisplayValues.age, () =>
+        {renderSelector(t('age'), fieldDisplayValues.age, () =>
           openPicker('age', 'Select Age', ageOptions)
         )}
 
-        {renderSelector('Gender', fieldDisplayValues.gender, () =>
+        {renderSelector(t('gender'), fieldDisplayValues.gender, () =>
           openPicker('gender', 'Select Gender', genderOptions)
         )}
 
-        {renderSelector('Height (cm)', fieldDisplayValues.height, () =>
+        {renderSelector(`${t('height')} (cm)`, fieldDisplayValues.height, () =>
           openPicker('height', 'Select Height', heightOptions, 'cm')
         )}
 
-        {renderSelector('Weight (kg)', fieldDisplayValues.weight, () =>
+        {renderSelector(`${t('weight')} (kg)`, fieldDisplayValues.weight, () =>
           openPicker('weight', 'Select Weight', weightOptions, 'kg')
         )}
 
@@ -132,11 +136,11 @@ export default function ProfileEditForm({
           onPress={onSave}
           disabled={saving}
         >
-          <Text style={styles.saveButtonText}>{saving ? 'Saving...' : 'Save Profile'}</Text>
+          <Text style={styles.saveButtonText}>{saving ? t('saving') : t('saveProfile')}</Text>
         </Pressable>
 
         <Pressable style={styles.cancelButton} onPress={onCancel} disabled={saving}>
-          <Text style={styles.cancelButtonText}>Cancel</Text>
+          <Text style={styles.cancelButtonText}>{t('cancel')}</Text>
         </Pressable>
       </View>
 
@@ -152,7 +156,8 @@ export default function ProfileEditForm({
 
             <ScrollView style={styles.optionsList} showsVerticalScrollIndicator={false}>
               {pickerOptions.map((item) => {
-                const label = pickerUnit ? `${item} ${pickerUnit}` : String(item);
+                const label = pickerUnit ? `${item} ${pickerUnit}`
+                  : item === 'Male' ? t('male') : item === 'Female' ? t('female') : String(item);
                 return (
                   <Pressable
                     key={String(item)}
@@ -166,7 +171,7 @@ export default function ProfileEditForm({
             </ScrollView>
 
             <Pressable style={styles.modalCancelButton} onPress={closePicker}>
-              <Text style={styles.modalCancelText}>Close</Text>
+              <Text style={styles.modalCancelText}>{t('close')}</Text>
             </Pressable>
           </View>
         </View>
@@ -175,7 +180,7 @@ export default function ProfileEditForm({
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   card: {
     backgroundColor: '#ffffff',
     borderRadius: 14,

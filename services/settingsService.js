@@ -11,6 +11,8 @@ export function getDefaultProfile() {
     height: '',
     weight: '',
     notifications_enabled: true,
+    preferred_language: null,
+    preferred_theme: null,
   };
 }
 
@@ -39,6 +41,8 @@ export async function getUserProfile(uid, fallbackEmail = '') {
       typeof data.notifications_enabled === 'boolean'
         ? data.notifications_enabled
         : true,
+    preferred_language: data.preferred_language || null,
+    preferred_theme: data.preferred_theme || null,
   };
 }
 

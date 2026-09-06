@@ -1,0 +1,1 @@
+"""MediSnap medicine recognition backend."""

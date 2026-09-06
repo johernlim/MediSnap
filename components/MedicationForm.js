@@ -10,6 +10,8 @@ import {
   View,
 } from 'react-native';
 import { DOSE_UNITS, FREQUENCY_PRESETS } from '../services/medicationFormat';
+import { useLanguage } from '../contexts/LanguageContext';
+import { useThemedStyles } from '../hooks/use-themed-styles';
 
 export default function MedicationForm({
   formData,
@@ -22,6 +24,8 @@ export default function MedicationForm({
   editingId,
   saving,
 }) {
+  const { t } = useLanguage();
+  const styles = useThemedStyles(baseStyles);
   const [unitPickerVisible, setUnitPickerVisible] = useState(false);
 
   const selectedUnit =
@@ -46,11 +50,11 @@ export default function MedicationForm({
     <>
       <View style={styles.card}>
         <Text style={styles.heading}>
-          {editingId ? 'Edit Medication' : 'Add Medication'}
+          {editingId ? t('editMedication') : t('addMedication')}
         </Text>
 
         <Text style={styles.label}>
-          Medication Name <Text style={styles.required}>*</Text>
+          {t('medicationName')} <Text style={styles.required}>*</Text>
         </Text>
         <TextInput
           style={[styles.input, errors.med_name && styles.inputError]}
@@ -62,7 +66,7 @@ export default function MedicationForm({
         {renderError('med_name')}
 
         <Text style={styles.label}>
-          Dosage <Text style={styles.required}>*</Text>
+          {t('dosage')} <Text style={styles.required}>*</Text>
         </Text>
         <View style={styles.dosageRow}>
           <TextInput
@@ -98,7 +102,7 @@ export default function MedicationForm({
         <View style={styles.spacer} />
 
         <Text style={styles.label}>
-          Frequency <Text style={styles.required}>*</Text>
+          {t('frequency')} <Text style={styles.required}>*</Text>
         </Text>
         <View style={styles.chipRow}>
           {FREQUENCY_PRESETS.map((times) => {
@@ -131,7 +135,7 @@ export default function MedicationForm({
                 isOtherFrequency && styles.chipTextSelected,
               ]}
             >
-              Other
+              {t('other')}
             </Text>
           </Pressable>
         </View>
@@ -150,13 +154,13 @@ export default function MedicationForm({
               onChangeText={(value) => onChange('freq_times', value)}
               keyboardType="number-pad"
             />
-            <Text style={styles.otherSuffix}>times per day</Text>
+            <Text style={styles.otherSuffix}>{t('timesPerDay')}</Text>
           </View>
         ) : null}
         {renderError('freq_times')}
 
         <Text style={styles.label}>
-          Photo <Text style={styles.optional}>(optional)</Text>
+          {t('photo')} <Text style={styles.optional}>({t('optional')})</Text>
         </Text>
         {formData.med_photo ? (
           <View style={styles.photoRow}>
@@ -168,7 +172,7 @@ export default function MedicationForm({
                 onPress={onAddPhoto}
                 disabled={photoBusy}
               >
-                <Text style={styles.photoButtonText}>Change</Text>
+                <Text style={styles.photoButtonText}>{t('change')}</Text>
               </Pressable>
 
               <Pressable
@@ -176,7 +180,7 @@ export default function MedicationForm({
                 onPress={() => onChange('med_photo', '')}
                 disabled={photoBusy}
               >
-                <Text style={styles.photoRemoveText}>Remove</Text>
+                <Text style={styles.photoRemoveText}>{t('remove')}</Text>
               </Pressable>
             </View>
           </View>
@@ -190,17 +194,17 @@ export default function MedicationForm({
             disabled={photoBusy}
           >
             <Text style={styles.addPhotoText}>
-              {photoBusy ? 'Working...' : '+  Add Photo'}
+              {photoBusy ? t('working') : `+  ${t('addPhoto')}`}
             </Text>
           </Pressable>
         )}
 
         <Text style={styles.label}>
-          Description <Text style={styles.optional}>(optional)</Text>
+          {t('description')} <Text style={styles.optional}>({t('optional')})</Text>
         </Text>
         <TextInput
           style={[styles.input, styles.textArea]}
-          placeholder="What is it for, and anything to remember"
+          placeholder={t('descriptionPlaceholder')}
           placeholderTextColor="#94a3b8"
           value={formData.med_desc}
           onChangeText={(value) => onChange('med_desc', value)}
@@ -217,13 +221,13 @@ export default function MedicationForm({
           disabled={saving}
         >
           <Text style={styles.primaryButtonText}>
-            {saving ? 'Saving...' : editingId ? 'Update Medication' : 'Add Medication'}
+            {saving ? t('saving') : editingId ? t('updateMedication') : t('addMedication')}
           </Text>
         </Pressable>
 
         {editingId ? (
           <Pressable style={styles.secondaryButton} onPress={onCancel}>
-            <Text style={styles.secondaryButtonText}>Cancel Edit</Text>
+            <Text style={styles.secondaryButtonText}>{t('cancelEdit')}</Text>
           </Pressable>
         ) : null}
       </View>
@@ -236,7 +240,7 @@ export default function MedicationForm({
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Select Unit</Text>
+            <Text style={styles.modalTitle}>{t('selectUnit')}</Text>
 
             <ScrollView
               style={styles.optionsList}
@@ -274,7 +278,7 @@ export default function MedicationForm({
               style={styles.modalCancelButton}
               onPress={() => setUnitPickerVisible(false)}
             >
-              <Text style={styles.modalCancelText}>Close</Text>
+              <Text style={styles.modalCancelText}>{t('close')}</Text>
             </Pressable>
           </View>
         </View>
@@ -283,7 +287,7 @@ export default function MedicationForm({
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   card: {
     backgroundColor: '#ffffff',
     borderRadius: 18,

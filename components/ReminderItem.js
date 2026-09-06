@@ -1,4 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useLanguage } from '../contexts/LanguageContext';
+import { useThemedStyles } from '../hooks/use-themed-styles';
 
 function formatCreatedAt(createdAt) {
   if (!createdAt) {
@@ -37,56 +39,63 @@ function formatReminderTimes(reminderTimes) {
   return reminderTimes.join(', ');
 }
 
-function formatScheduleText(item) {
+function formatScheduleText(item, t, language) {
   if (item.repeat_type === 'Weekly') {
-    return item.weekly_day ? `Every ${item.weekly_day}` : 'Every week';
+    if (!item.weekly_day) return t('everyWeek');
+    const index = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+      .indexOf(item.weekly_day);
+    const locale = language === 'zh' ? 'zh-CN' : language === 'ms' ? 'ms-MY' : 'en-MY';
+    return index >= 0 ? new Date(2024, 0, 7 + index).toLocaleDateString(locale,
+      { weekday: 'long' }) : item.weekly_day;
   }
 
   if (item.repeat_type === 'Monthly') {
-    return item.monthly_day ? `Every month on day ${item.monthly_day}` : 'Every month';
+    return item.monthly_day ? t('everyMonthDay', { day: item.monthly_day }) : t('everyMonth');
   }
 
-  return 'Every day';
+  return t('everyDay');
 }
 
 export default function ReminderItem({ item, medName, onEdit, onDelete }) {
+  const { language, t } = useLanguage();
+  const styles = useThemedStyles(baseStyles);
   const createdAtText = formatCreatedAt(item.created_at);
   const isActive = item.reminder_status === 'Active';
-  const scheduleText = formatScheduleText(item);
+  const scheduleText = formatScheduleText(item, t, language);
 
   return (
     <View style={styles.card}>
       <View style={styles.rowBetween}>
         <Text style={styles.medName}>{medName}</Text>
         <View style={[styles.statusBadge, isActive ? styles.activeBadge : styles.inactiveBadge]}>
-          <Text style={styles.statusText}>{item.reminder_status}</Text>
+          <Text style={styles.statusText}>{item.reminder_status === 'Active' ? t('active') : t('inactive')}</Text>
         </View>
       </View>
 
-      <Text style={styles.detail}>Repeat: {item.repeat_type || '-'}</Text>
-      <Text style={styles.detail}>Schedule: {scheduleText}</Text>
-      <Text style={styles.detail}>Times per period: {item.times_per_period || '-'}</Text>
-      <Text style={styles.detail}>Reminder times: {formatReminderTimes(item.reminder_times)}</Text>
-      <Text style={styles.detail}>Start date: {formatStartDate(item.start_date)}</Text>
-      <Text style={styles.dateText}>Created: {createdAtText}</Text>
+      <Text style={styles.detail}>{t('repeatType')}: {item.repeat_type || '-'}</Text>
+      <Text style={styles.detail}>{t('schedule')}: {scheduleText}</Text>
+      <Text style={styles.detail}>{t('timesPerPeriod')}: {item.times_per_period || '-'}</Text>
+      <Text style={styles.detail}>{t('reminderTimes')}: {formatReminderTimes(item.reminder_times)}</Text>
+      <Text style={styles.detail}>{t('startDate')}: {formatStartDate(item.start_date)}</Text>
+      <Text style={styles.dateText}>{t('created')}: {createdAtText}</Text>
 
       <View style={styles.actionRow}>
         <Pressable style={[styles.actionButton, styles.editButton]} onPress={() => onEdit(item)}>
-          <Text style={styles.editButtonText}>Edit</Text>
+          <Text style={styles.editButtonText}>{t('edit')}</Text>
         </Pressable>
 
         <Pressable
           style={[styles.actionButton, styles.deleteButton]}
           onPress={() => onDelete(item)}
         >
-          <Text style={styles.deleteButtonText}>Delete</Text>
+          <Text style={styles.deleteButtonText}>{t('delete')}</Text>
         </Pressable>
       </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   card: {
     backgroundColor: '#ffffff',
     borderRadius: 16,

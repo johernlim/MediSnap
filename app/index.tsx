@@ -3,18 +3,21 @@ import type { Auth } from 'firebase/auth';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import type { Firestore } from 'firebase/firestore';
 import { collection, getDocs, limit, query, where } from 'firebase/firestore';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   Alert,
   Image,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { validateEmail } from '../services/emailValidator';
+import { getPreferredLanguage } from '../services/languageService';
+import { useLanguage } from '../contexts/LanguageContext';
+import { useThemedStyles } from '../hooks/use-themed-styles';
 
 const { auth, db } = require('../firebaseConfig') as {
   auth: Auth;
@@ -22,8 +25,12 @@ const { auth, db } = require('../firebaseConfig') as {
 };
 
 export default function LoginScreen() {
+  const { t } = useLanguage();
+  const styles = useThemedStyles(baseStyles);
   const [loginInput, setLoginInput] = useState('');
   const [password, setPassword] = useState('');
+  const [signingIn, setSigningIn] = useState(false);
+  const loginInProgress = useRef(false);
 
   const getEmailFromUsername = async (username: string) => {
     // limit(1) is required by the security rules: a username lookup must run
@@ -46,7 +53,7 @@ export default function LoginScreen() {
 
   const handleLogin = () => {
     if (!loginInput || !password) {
-      Alert.alert('Error', 'Please enter registered email/username.');
+      Alert.alert(t('error'), t('enterCredentials'));
       return;
     }
 
@@ -63,25 +70,25 @@ export default function LoginScreen() {
     const result = validateEmail(trimmedInput);
 
     if (!result.valid) {
-      Alert.alert('Invalid Email', result.message as string);
+      Alert.alert(t('invalidEmail'), t('invalidEmailMessage'));
       return;
     }
 
     if (result.suggestion) {
       Alert.alert(
-        'Check Your Email Address',
-        `You entered ${result.email}. Did you mean ${result.suggestion}?`,
+        t('checkEmailAddress'),
+        t('didYouMean', { email: result.email, suggestion: result.suggestion }),
         [
-          { text: 'Edit', style: 'cancel' },
+          { text: t('editAddress'), style: 'cancel' },
           {
-            text: `Use ${result.suggestion}`,
+            text: t('useSuggestion', { suggestion: result.suggestion }),
             onPress: () => {
               setLoginInput(result.suggestion as string);
               signIn(result.suggestion as string, true);
             },
           },
           {
-            text: 'Use mine anyway',
+            text: t('useMine'),
             style: 'destructive',
             onPress: () => signIn(result.email, true),
           },
@@ -94,20 +101,30 @@ export default function LoginScreen() {
   };
 
   const signIn = async (identifier: string, isEmailInput: boolean) => {
+    if (loginInProgress.current) return;
+    loginInProgress.current = true;
+    setSigningIn(true);
     try {
       let emailToLogin = identifier;
 
       if (!isEmailInput) {
         const foundEmail = await getEmailFromUsername(identifier);
         if (!foundEmail) {
-          Alert.alert('Login Failed', 'Username not found.');
+          Alert.alert(t('loginFailed'), t('usernameNotFound'));
           return;
         }
         emailToLogin = foundEmail;
       }
 
-      await signInWithEmailAndPassword(auth, emailToLogin, password);
-      Alert.alert('Success', 'Login successful.');
+      const credential = await signInWithEmailAndPassword(auth, emailToLogin, password);
+      try {
+        await getPreferredLanguage(credential.user.uid);
+      } catch (profileError) {
+        console.error('Unable to load language preference after login:', profileError);
+      }
+      // Language onboarding happens immediately after signup. Returning users
+      // never see it again; a saved preference is loaded above, and older
+      // accounts can choose a language from Settings.
       router.replace('/(tabs)' as never);
     } catch (error: any) {
       const errorCode = error?.code || '';
@@ -117,18 +134,21 @@ export default function LoginScreen() {
         errorCode === 'auth/invalid-credential'
       ) {
         Alert.alert(
-          'Login Failed',
-          'Invalid password!!! Try again or Reset Password.'
+          t('loginFailed'),
+          t('invalidPassword')
         );
         return;
       }
 
       if (errorCode === 'auth/user-not-found') {
-        Alert.alert('Login Failed', 'User account not found.');
+        Alert.alert(t('loginFailed'), t('userNotFound'));
         return;
       }
 
-      Alert.alert('Login Failed', error?.message || 'Unable to login right now.');
+      Alert.alert(t('loginFailed'), error?.message || t('unableLogin'));
+    } finally {
+      loginInProgress.current = false;
+      setSigningIn(false);
     }
   };
 
@@ -138,18 +158,18 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
+      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <Image
           source={require('../assets/images/MediSnapLogo.png')}
           style={styles.logo}
           resizeMode="contain"
         />
 
-        <Text style={styles.title}>MediSnap Login</Text>
+        <Text style={styles.title}>{t('loginTitle')}</Text>
 
         <TextInput
           style={styles.input}
-          placeholder="Email or Username"
+          placeholder={t('emailOrUsername')}
           placeholderTextColor="#6b7280"
           value={loginInput}
           onChangeText={setLoginInput}
@@ -158,30 +178,31 @@ export default function LoginScreen() {
 
         <TextInput
           style={styles.input}
-          placeholder="Password"
+          placeholder={t('password')}
           placeholderTextColor="#6b7280"
           value={password}
           onChangeText={setPassword}
           secureTextEntry
         />
 
-        <TouchableOpacity style={styles.button} onPress={handleLogin}>
-          <Text style={styles.buttonText}>Login</Text>
+        <TouchableOpacity style={[styles.button, signingIn && styles.disabledButton]}
+          disabled={signingIn} onPress={handleLogin}>
+          <Text style={styles.buttonText}>{signingIn ? t('loading') : t('login')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => router.push('/signup' as never)}>
-          <Text style={styles.link}>Sign Up</Text>
+          <Text style={styles.link}>{t('signUp')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity onPress={goToForgotPassword}>
-          <Text style={styles.link}>Forgot Password?</Text>
+          <Text style={styles.link}>{t('forgotPassword')}</Text>
         </TouchableOpacity>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#fff',
@@ -225,6 +246,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: 'bold',
   },
+  disabledButton: { opacity: 0.65 },
   link: {
     textAlign: 'center',
     color: '#2563eb',

@@ -14,6 +14,8 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useLanguage } from '../contexts/LanguageContext';
+import { useThemedStyles } from '../hooks/use-themed-styles';
 import { auth, db } from '../firebaseConfig';
 import {
   describeSnoozeBudget,
@@ -42,6 +44,8 @@ import {
  * expo-notifications cannot put a picture inside an Android notification.
  */
 export default function DoseScreen() {
+  const { t } = useLanguage();
+  const styles = useThemedStyles(baseStyles);
   const params = useLocalSearchParams();
 
   const medId = typeof params.medId === 'string' ? params.medId : '';
@@ -218,14 +222,14 @@ export default function DoseScreen() {
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.topBar}>
           <Pressable style={styles.backButton} onPress={() => router.back()}>
-            <Text style={styles.backButtonText}>Close</Text>
+            <Text style={styles.backButtonText}>{t('close')}</Text>
           </Pressable>
         </View>
 
         <Text style={styles.eyebrow}>
           {scheduledTime ? `Scheduled for ${scheduledTime}` : 'Medication reminder'}
         </Text>
-        <Text style={styles.title}>Time to take</Text>
+        <Text style={styles.title}>{t('timeToTake')}</Text>
 
         {loading ? (
           <ActivityIndicator size="large" color="#2563eb" style={styles.loader} />
@@ -262,7 +266,7 @@ export default function DoseScreen() {
               onPress={handleSnooze}
               disabled={working}
             >
-              <Text style={styles.snoozeButtonText}>Remind me later</Text>
+              <Text style={styles.snoozeButtonText}>{t('remindLater')}</Text>
             </Pressable>
 
             <Text
@@ -277,7 +281,7 @@ export default function DoseScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#f8fafc',

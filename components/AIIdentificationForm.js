@@ -1,4 +1,7 @@
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import MedicineRecognitionResult from './MedicineRecognitionResult';
+import { useLanguage } from '../contexts/LanguageContext';
+import { useThemedStyles } from '../hooks/use-themed-styles';
 
 export default function AIIdentificationForm({
   selectedImage,
@@ -7,50 +10,63 @@ export default function AIIdentificationForm({
   onPickCamera,
   onPickGallery,
   onIdentify,
+  preferredLanguage,
+  refinementMode = false,
+  refinementDismissed = false,
+  onStartRefinement,
+  onFinish,
 }) {
+  const { t } = useLanguage();
+  const styles = useThemedStyles(baseStyles);
   return (
     <View style={styles.card}>
-      <Text style={styles.heading}>Identify Medicine</Text>
+      <Text style={styles.heading}>{refinementMode ? t('confirmMedicine') : t('identifyMedicine')}</Text>
+      {refinementMode && <Text style={styles.helperText}>
+        {t('packagePhotoPrompt')} {t('firstEvidenceKept')}
+      </Text>}
 
       <View style={styles.previewBox}>
         {selectedImage?.uri ? (
           <Image source={{ uri: selectedImage.uri }} style={styles.previewImage} />
         ) : (
           <Text style={styles.previewPlaceholder}>
-            No image selected yet.
+            {refinementMode ? t('packagePhotoPrompt') : t('noImage')}
           </Text>
         )}
       </View>
 
-      <Pressable style={styles.secondaryButton} onPress={onPickCamera}>
-        <Text style={styles.secondaryButtonText}>Capture Image Using Camera</Text>
+      <Pressable accessibilityRole="button" disabled={identifying} style={styles.secondaryButton} onPress={onPickCamera}>
+        <Text style={styles.secondaryButtonText}>{refinementMode ? t('capturePackage') : t('captureCamera')}</Text>
       </Pressable>
 
-      <Pressable style={styles.secondaryButton} onPress={onPickGallery}>
-        <Text style={styles.secondaryButtonText}>Upload Image From Gallery</Text>
+      <Pressable accessibilityRole="button" disabled={identifying} style={styles.secondaryButton} onPress={onPickGallery}>
+        <Text style={styles.secondaryButtonText}>{refinementMode ? t('uploadPackage') : t('uploadGallery')}</Text>
       </Pressable>
 
       <Pressable
         style={[styles.primaryButton, identifying && styles.disabledButton]}
         onPress={onIdentify}
-        disabled={identifying}
+        disabled={identifying || !selectedImage}
+        accessibilityRole="button"
       >
         <Text style={styles.primaryButtonText}>
-          {identifying ? 'Identifying...' : 'Identify Medicine'}
+          {identifying ? t('checking') : refinementMode ? t('confirmMedicine') : t('identifyMedicine')}
         </Text>
       </Pressable>
 
-      <View style={styles.resultCard}>
-        <Text style={styles.resultTitle}>Predicted Result</Text>
-        <Text style={styles.resultText}>
-          {predictedResult || 'No result yet. Select an image and press Identify Medicine.'}
-        </Text>
-      </View>
+      {predictedResult ? <MedicineRecognitionResult result={predictedResult} language={preferredLanguage}
+        refinementMode={refinementMode} refinementDismissed={refinementDismissed}
+        onStartRefinement={onStartRefinement} onFinish={onFinish} /> : (
+        <View style={styles.resultCard}>
+          <Text style={styles.resultText}>{t('recognitionHelp')}</Text>
+          <Text style={styles.resultText}>{t('recognitionSafety')}</Text>
+        </View>
+      )}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   card: {
     backgroundColor: '#ffffff',
     borderRadius: 18,
@@ -64,6 +80,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#0f172a',
     marginBottom: 16,
+  },
+  helperText: {
+    color: '#475569',
+    fontSize: 15,
+    lineHeight: 22,
+    marginBottom: 14,
   },
   previewBox: {
     height: 240,
@@ -79,7 +101,7 @@ const styles = StyleSheet.create({
   previewImage: {
     width: '100%',
     height: '100%',
-    resizeMode: 'cover',
+    resizeMode: 'contain',
   },
   previewPlaceholder: {
     color: '#64748b',

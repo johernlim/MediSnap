@@ -1,8 +1,28 @@
 import { router } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { auth } from '../../firebaseConfig';
+import { getUserProfile } from '../../services/settingsService';
+import { useThemedStyles } from '../../hooks/use-themed-styles';
 
 export default function HomeTabScreen() {
+  const { t } = useLanguage();
+  const styles = useThemedStyles(baseStyles);
+  const [username, setUsername] = useState('');
+
+  useEffect(() => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) return undefined;
+    let active = true;
+    getUserProfile(currentUser.uid, currentUser.email || '')
+      .then((profile) => {
+        if (active) setUsername(profile.username || currentUser.email?.split('@')[0] || '');
+      })
+      .catch((error) => console.error('Unable to load home username:', error));
+    return () => { active = false; };
+  }, []);
   const goToMedication = () => {
     router.push('/medications' as never);
   };
@@ -26,8 +46,10 @@ export default function HomeTabScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <Text style={styles.title}>MediSnap Home</Text>
-        <Text style={styles.subtitle}>Login successful</Text>
+        <Text style={styles.title}>{t('home')}</Text>
+        <Text style={styles.subtitle}>{t('loginGreeting', {
+          username: username || auth.currentUser?.email?.split('@')[0] || '',
+        })}</Text>
 
         <TouchableOpacity
           style={styles.featureCard}
@@ -37,7 +59,7 @@ export default function HomeTabScreen() {
           <View style={styles.iconBox}>
             <Text style={styles.iconText}>💊</Text>
           </View>
-          <Text style={styles.featureText}>Medication</Text>
+          <Text style={styles.featureText}>{t('medication')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -48,7 +70,7 @@ export default function HomeTabScreen() {
           <View style={styles.iconBox}>
             <Text style={styles.iconText}>📷</Text>
           </View>
-          <Text style={styles.featureText}>AI Medicine Identification</Text>
+          <Text style={styles.featureText}>{t('identification')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -59,7 +81,7 @@ export default function HomeTabScreen() {
           <View style={styles.iconBox}>
             <Text style={styles.iconText}>⏰</Text>
           </View>
-          <Text style={styles.featureText}>Reminder</Text>
+          <Text style={styles.featureText}>{t('reminder')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -70,7 +92,7 @@ export default function HomeTabScreen() {
           <View style={styles.iconBox}>
             <Text style={styles.iconText}>💬</Text>
           </View>
-          <Text style={styles.featureText}>Chatbot</Text>
+          <Text style={styles.featureText}>{t('chatbot')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -81,14 +103,14 @@ export default function HomeTabScreen() {
           <View style={styles.iconBox}>
             <Text style={styles.iconText}>⚙️</Text>
           </View>
-          <Text style={styles.featureText}>Settings</Text>
+          <Text style={styles.featureText}>{t('settings')}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#f8fafc',

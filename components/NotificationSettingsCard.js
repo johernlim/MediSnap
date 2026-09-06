@@ -1,23 +1,27 @@
 import { StyleSheet, Switch, Text, View } from 'react-native';
+import { useLanguage } from '../contexts/LanguageContext';
+import { useThemedStyles } from '../hooks/use-themed-styles';
 
 export default function NotificationSettingsCard({
   enabled,
   saving,
   onToggle,
 }) {
+  const { t } = useLanguage();
+  const styles = useThemedStyles(baseStyles);
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>Notification Settings</Text>
+      <Text style={styles.title}>{t('notifications')}</Text>
       <Text style={styles.description}>
-        Turn reminder notifications on or off.
+        {t('notificationHelp')}
       </Text>
 
       <View style={styles.row}>
         <View style={styles.textBox}>
-          <Text style={styles.label}>Reminder Notifications</Text>
+          <Text style={styles.label}>{t('reminderNotifications')}</Text>
           <Text style={styles.statusText}>
-            {enabled ? 'Enabled' : 'Disabled'}
-            {saving ? ' • Saving...' : ''}
+            {enabled ? t('enabled') : t('disabled')}
+            {saving ? ` • ${t('saving')}` : ''}
           </Text>
         </View>
 
@@ -33,7 +37,7 @@ export default function NotificationSettingsCard({
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   card: {
     backgroundColor: '#ffffff',
     borderRadius: 14,

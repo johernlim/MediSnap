@@ -9,8 +9,9 @@ import { ActivityIndicator, View } from 'react-native';
 import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import MilestoneModal from '../components/MilestoneModal';
+import { LanguageProvider, useLanguage } from '../contexts/LanguageContext';
+import { AppThemeProvider, useAppTheme } from '../contexts/ThemeContext';
 import {
   getPendingMilestone,
   getStreak,
@@ -44,8 +45,9 @@ function openDoseScreen(data: any, snooze = false) {
   router.push(`/dose?${query}` as never);
 }
 
-export default function RootLayout() {
-  const colorScheme = useColorScheme();
+function RootLayoutContent() {
+  const { ready: languageReady } = useLanguage();
+  const { dark, ready: themeReady } = useAppTheme();
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [milestone, setMilestone] = useState<number | null>(null);
@@ -160,21 +162,21 @@ export default function RootLayout() {
     return () => subscription.remove();
   }, [isLoggedIn]);
 
-  if (checkingAuth) {
+  if (checkingAuth || !languageReady || !themeReady) {
     return (
       <SafeAreaProvider>
-        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <ThemeProvider value={dark ? DarkTheme : DefaultTheme}>
           <View
             style={{
               flex: 1,
               justifyContent: 'center',
               alignItems: 'center',
-              backgroundColor: '#ffffff',
+              backgroundColor: dark ? '#0f172a' : '#ffffff',
             }}
           >
             <ActivityIndicator size="large" color="#2563eb" />
           </View>
-          <StatusBar style="auto" />
+          <StatusBar style={dark ? 'light' : 'dark'} />
         </ThemeProvider>
       </SafeAreaProvider>
     );
@@ -182,10 +184,11 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+      <ThemeProvider value={dark ? DarkTheme : DefaultTheme}>
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Protected guard={isLoggedIn}>
             <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="language-selection" />
             <Stack.Screen name="ai-identification" />
             <Stack.Screen name="chat" />
             <Stack.Screen name="chat-history" />
@@ -195,14 +198,16 @@ export default function RootLayout() {
             <Stack.Screen name="medications" />
             <Stack.Screen name="modal" />
             <Stack.Screen name="reminders" />
+            <Stack.Screen name="settings" />
           </Stack.Protected>
 
           <Stack.Protected guard={!isLoggedIn}>
             <Stack.Screen name="index" />
             <Stack.Screen name="signup" />
+            <Stack.Screen name="forgot-password" />
           </Stack.Protected>
         </Stack>
-        <StatusBar style="auto" />
+        <StatusBar style={dark ? 'light' : 'dark'} />
 
         <MilestoneModal
           milestone={milestone}
@@ -212,4 +217,8 @@ export default function RootLayout() {
       </ThemeProvider>
     </SafeAreaProvider>
   );
+}
+
+export default function RootLayout() {
+  return <LanguageProvider><AppThemeProvider><RootLayoutContent /></AppThemeProvider></LanguageProvider>;
 }

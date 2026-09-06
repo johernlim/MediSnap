@@ -1,11 +1,14 @@
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useThemedStyles } from '../hooks/use-themed-styles';
 
-export default function ChatInputBox({ value, onChangeText, onSend, disabled }) {
+export default function ChatInputBox({ value, onChangeText, onSend, disabled,
+  placeholder = 'Ask a medicine-related question...', sendLabel = 'Send', sendingLabel = 'Sending...' }) {
+  const styles = useThemedStyles(baseStyles);
   return (
     <View>
       <TextInput
         style={styles.input}
-        placeholder="Ask a medicine-related question..."
+        placeholder={placeholder}
         placeholderTextColor="#6b7280"
         value={value}
         onChangeText={onChangeText}
@@ -18,13 +21,13 @@ export default function ChatInputBox({ value, onChangeText, onSend, disabled }) 
         onPress={onSend}
         disabled={disabled}
       >
-        <Text style={styles.sendButtonText}>{disabled ? 'Sending...' : 'Send'}</Text>
+        <Text style={styles.sendButtonText}>{disabled ? sendingLabel : sendLabel}</Text>
       </Pressable>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   input: {
     minHeight: 56,
     maxHeight: 120,

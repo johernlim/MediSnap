@@ -11,8 +11,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { validateEmail } from '../services/emailValidator';
 import { sendResetEmailAndLog } from '../services/passwordResetService';
+import { useLanguage } from '../contexts/LanguageContext';
+import { useThemedStyles } from '../hooks/use-themed-styles';
 
 export default function ForgotPasswordScreen() {
+  const { t } = useLanguage();
+  const styles = useThemedStyles(baseStyles);
   const [email, setEmail] = useState('');
   const [sending, setSending] = useState(false);
 
@@ -20,7 +24,7 @@ export default function ForgotPasswordScreen() {
     const result = validateEmail(email);
 
     if (!result.valid) {
-      Alert.alert('Validation Error', result.message);
+      Alert.alert(t('validationError'), t('invalidEmailMessage'));
       return;
     }
 
@@ -29,20 +33,19 @@ export default function ForgotPasswordScreen() {
     // reset email delivered to the wrong address is lost silently.
     if (result.suggestion) {
       Alert.alert(
-        'Check Your Email Address',
-        `You entered ${result.email}. Did you mean ${result.suggestion}?\n\n` +
-          'If the address is wrong, the password reset email will never reach you.',
+        t('checkEmailAddress'),
+        t('didYouMean', { email: result.email, suggestion: result.suggestion }),
         [
-          { text: 'Edit', style: 'cancel' },
+          { text: t('editAddress'), style: 'cancel' },
           {
-            text: `Use ${result.suggestion}`,
+            text: t('useSuggestion', { suggestion: result.suggestion }),
             onPress: () => {
               setEmail(result.suggestion);
               sendResetEmail(result.suggestion);
             },
           },
           {
-            text: 'Use mine anyway',
+            text: t('useMine'),
             style: 'destructive',
             onPress: () => sendResetEmail(result.email),
           },
@@ -62,11 +65,11 @@ export default function ForgotPasswordScreen() {
 
       if (!registered) {
         Alert.alert(
-          'Email Not Registered',
-          `The ${trimmedEmail} is not registered. Please sign up first!`,
+          t('emailNotRegistered'),
+          t('emailNotRegisteredMessage', { email: trimmedEmail }),
           [
             {
-              text: 'OK',
+              text: t('ok'),
               onPress: () => router.replace('/signup'),
             },
           ]
@@ -77,12 +80,11 @@ export default function ForgotPasswordScreen() {
       setEmail('');
 
       Alert.alert(
-        'Check Your Email',
-        `A password reset link has been sent to ${trimmedEmail}.\n\n` +
-          'If nothing arrives within a few minutes, check your spam folder.',
+        t('checkEmail'),
+        t('resetSent', { email: trimmedEmail }),
         [
           {
-            text: 'OK',
+            text: t('ok'),
             onPress: () => router.replace('/'),
           },
         ]
@@ -90,8 +92,8 @@ export default function ForgotPasswordScreen() {
     } catch (error) {
       console.error('Password reset failed:', error);
       Alert.alert(
-        'Reset Failed',
-        error?.message || 'Unable to send password reset email right now.'
+        t('resetFailed'),
+        t('resetUnavailable')
       );
     } finally {
       setSending(false);
@@ -101,14 +103,14 @@ export default function ForgotPasswordScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <Text style={styles.title}>Forgot Password</Text>
+        <Text style={styles.title}>{t('forgotTitle')}</Text>
         <Text style={styles.subtitle}>
-          Enter your registered email address and we will send a password reset email.
+          {t('forgotHelp')}
         </Text>
 
         <TextInput
           style={styles.input}
-          placeholder="Email Address"
+          placeholder={t('emailAddress')}
           placeholderTextColor="#6b7280"
           value={email}
           onChangeText={setEmail}
@@ -122,19 +124,19 @@ export default function ForgotPasswordScreen() {
           disabled={sending}
         >
           <Text style={styles.primaryButtonText}>
-            {sending ? 'Sending...' : 'Send Reset Email'}
+            {sending ? t('sending') : t('sendReset')}
           </Text>
         </Pressable>
 
         <Pressable style={styles.secondaryButton} onPress={() => router.back()}>
-          <Text style={styles.secondaryButtonText}>Back to Login</Text>
+          <Text style={styles.secondaryButtonText}>{t('backToLogin')}</Text>
         </Pressable>
       </View>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#ffffff',

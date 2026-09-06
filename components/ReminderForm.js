@@ -1,5 +1,8 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useState } from 'react';
+import { useLanguage } from '../contexts/LanguageContext';
+import { useThemedStyles } from '../hooks/use-themed-styles';
+import { useAppTheme } from '../contexts/ThemeContext';
 import {
   Modal,
   Platform,
@@ -89,12 +92,25 @@ export default function ReminderForm({
   onSubmit,
   onCancel,
 }) {
+  const { language, t } = useLanguage();
+  const { dark } = useAppTheme();
+  const styles = useThemedStyles(baseStyles);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [tempDate, setTempDate] = useState(parseYMDToDate(formData.start_date));
 
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [selectedTimeIndex, setSelectedTimeIndex] = useState(null);
   const [tempTime, setTempTime] = useState(parseHMToDate('08:00'));
+  const locale = language === 'zh' ? 'zh-CN' : language === 'ms' ? 'ms-MY' : 'en-MY';
+  const optionLabel = (option) => {
+    const key = { Daily: 'daily', Weekly: 'weekly', Monthly: 'monthly',
+      Active: 'active', Inactive: 'inactive' }[option];
+    if (key) return t(key);
+    const weekdayIndex = weekdayOptions.indexOf(option);
+    return weekdayIndex >= 0
+      ? new Date(2024, 0, 7 + weekdayIndex).toLocaleDateString(locale, { weekday: 'long' })
+      : option;
+  };
 
   const renderError = (message) => {
     if (!message) {
@@ -177,7 +193,7 @@ export default function ReminderForm({
         {editingId ? 'Edit Reminder' : 'Add Reminder'}
       </Text>
 
-      <Text style={styles.label}>Choose Medication</Text>
+      <Text style={styles.label}>{t('chooseMedication')}</Text>
       <View style={styles.medicationList}>
         {medications.length === 0 ? (
           <View style={styles.emptyMedicationBox}>
@@ -213,7 +229,7 @@ export default function ReminderForm({
       </View>
       {renderError(errors.med_id)}
 
-      <Text style={styles.label}>Repeat Type</Text>
+      <Text style={styles.label}>{t('repeatType')}</Text>
       <View style={styles.optionRowWrap}>
         {repeatTypeOptions.map((option) => {
           const isSelected = formData.repeat_type === option;
@@ -230,7 +246,7 @@ export default function ReminderForm({
                   isSelected && styles.optionButtonTextSelected,
                 ]}
               >
-                {option}
+                {optionLabel(option)}
               </Text>
             </Pressable>
           );
@@ -238,7 +254,7 @@ export default function ReminderForm({
       </View>
       {renderError(errors.repeat_type)}
 
-      <Text style={styles.label}>Times Per Period</Text>
+      <Text style={styles.label}>{t('timesPerPeriod')}</Text>
       <View style={styles.optionRowWrap}>
         {timesPerPeriodOptions.map((option) => {
           const isSelected = Number(formData.times_per_period) === option;
@@ -255,7 +271,7 @@ export default function ReminderForm({
                   isSelected && styles.optionButtonTextSelected,
                 ]}
               >
-                {option}
+                {optionLabel(option)}
               </Text>
             </Pressable>
           );
@@ -263,7 +279,7 @@ export default function ReminderForm({
       </View>
       {renderError(errors.times_per_period)}
 
-      <Text style={styles.label}>Reminder Times</Text>
+      <Text style={styles.label}>{t('reminderTimes')}</Text>
       {formData.reminder_times.map((time, index) => (
         <View key={index}>
           <Pressable
@@ -287,9 +303,9 @@ export default function ReminderForm({
         </View>
       ))}
 
-      <Text style={styles.helperText}>Tap each field to choose the reminder time.</Text>
+      <Text style={styles.helperText}>{t('chooseTimeHelp')}</Text>
 
-      <Text style={styles.label}>Start Date</Text>
+      <Text style={styles.label}>{t('startDate')}</Text>
       <Pressable
         style={[styles.input, styles.dateInputButton, errors.start_date && styles.inputError]}
         onPress={openDatePicker}
@@ -333,7 +349,7 @@ export default function ReminderForm({
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalSheet}>
-            <Text style={styles.modalTitle}>Select Start Date</Text>
+            <Text style={styles.modalTitle}>{t('selectStartDate')}</Text>
 
             <DateTimePicker
               value={tempDate}
@@ -341,17 +357,17 @@ export default function ReminderForm({
               display="inline"
               minimumDate={new Date()}
               onChange={handleDateChange}
-              themeVariant="light"
+              themeVariant={dark ? 'dark' : 'light'}
               accentColor="#2563eb"
             />
 
             <View style={styles.modalButtonRow}>
               <Pressable style={styles.modalCancelButton} onPress={handleIOSCancelDate}>
-                <Text style={styles.modalCancelText}>Cancel</Text>
+                <Text style={styles.modalCancelText}>{t('cancel')}</Text>
               </Pressable>
 
               <Pressable style={styles.modalDoneButton} onPress={handleIOSConfirmDate}>
-                <Text style={styles.modalDoneText}>Done</Text>
+                <Text style={styles.modalDoneText}>{t('done')}</Text>
               </Pressable>
             </View>
           </View>
@@ -366,25 +382,25 @@ export default function ReminderForm({
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalSheet}>
-            <Text style={styles.modalTitle}>Select Reminder Time</Text>
+            <Text style={styles.modalTitle}>{t('selectReminderTime')}</Text>
 
             <DateTimePicker
               value={tempTime}
               mode="time"
               display="spinner"
               onChange={handleTimePickerChange}
-              themeVariant="light"
+              themeVariant={dark ? 'dark' : 'light'}
               textColor="#000000"
               accentColor="#2563eb"
             />
 
             <View style={styles.modalButtonRow}>
               <Pressable style={styles.modalCancelButton} onPress={handleIOSCancelTime}>
-                <Text style={styles.modalCancelText}>Cancel</Text>
+                <Text style={styles.modalCancelText}>{t('cancel')}</Text>
               </Pressable>
 
               <Pressable style={styles.modalDoneButton} onPress={handleIOSConfirmTime}>
-                <Text style={styles.modalDoneText}>Done</Text>
+                <Text style={styles.modalDoneText}>{t('done')}</Text>
               </Pressable>
             </View>
           </View>
@@ -393,7 +409,7 @@ export default function ReminderForm({
 
       {formData.repeat_type === 'Weekly' ? (
         <>
-          <Text style={styles.label}>Weekly Day</Text>
+          <Text style={styles.label}>{t('weeklyDay')}</Text>
           <View style={styles.optionRowWrap}>
             {weekdayOptions.map((option) => {
               const isSelected = formData.weekly_day === option;
@@ -410,7 +426,7 @@ export default function ReminderForm({
                       isSelected && styles.optionButtonTextSelected,
                     ]}
                   >
-                    {option}
+                    {optionLabel(option)}
                   </Text>
                 </Pressable>
               );
@@ -422,10 +438,10 @@ export default function ReminderForm({
 
       {formData.repeat_type === 'Monthly' ? (
         <>
-          <Text style={styles.label}>Day Of Month</Text>
+          <Text style={styles.label}>{t('dayOfMonth')}</Text>
           <TextInput
             style={[styles.input, errors.monthly_day && styles.inputError]}
-            placeholder="Enter day between 1 and 31"
+            placeholder={t('enterMonthDay')}
             placeholderTextColor="#6b7280"
             value={String(formData.monthly_day || '')}
             onChangeText={(value) => onChange('monthly_day', value)}
@@ -435,7 +451,7 @@ export default function ReminderForm({
         </>
       ) : null}
 
-      <Text style={styles.label}>Reminder Status</Text>
+      <Text style={styles.label}>{t('reminderStatus')}</Text>
       <View style={styles.optionRow}>
         {statusOptions.map((option) => {
           const isSelected = formData.reminder_status === option;
@@ -452,7 +468,7 @@ export default function ReminderForm({
                   isSelected && styles.optionButtonTextSelected,
                 ]}
               >
-                {option}
+                {optionLabel(option)}
               </Text>
             </Pressable>
           );
@@ -466,20 +482,20 @@ export default function ReminderForm({
         disabled={saving}
       >
         <Text style={styles.primaryButtonText}>
-          {saving ? 'Saving...' : editingId ? 'Update Reminder' : 'Save Reminder'}
+          {saving ? t('saving') : editingId ? t('updateReminder') : t('saveReminder')}
         </Text>
       </Pressable>
 
       {editingId ? (
         <Pressable style={styles.secondaryButton} onPress={onCancel}>
-          <Text style={styles.secondaryButtonText}>Cancel Edit</Text>
+          <Text style={styles.secondaryButtonText}>{t('cancelEdit')}</Text>
         </Pressable>
       ) : null}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   card: {
     backgroundColor: '#ffffff',
     borderRadius: 18,

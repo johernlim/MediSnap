@@ -4,6 +4,7 @@ import {
   createUserWithEmailAndPassword,
   inMemoryPersistence,
   initializeAuth,
+  signInWithEmailAndPassword,
 } from 'firebase/auth';
 import { doc, getFirestore, setDoc } from 'firebase/firestore';
 import { useState } from 'react';
@@ -18,6 +19,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { auth } from '../firebaseConfig';
 import { validateEmail } from '../services/emailValidator';
+import { useLanguage } from '../contexts/LanguageContext';
+import { useThemedStyles } from '../hooks/use-themed-styles';
 
 /**
  * Firebase error codes turned into something the user can act on.
@@ -73,6 +76,8 @@ function describeSignupError(error: any) {
 }
 
 export default function SignupScreen() {
+  const { t } = useLanguage();
+  const styles = useThemedStyles(baseStyles);
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -84,27 +89,27 @@ export default function SignupScreen() {
 
   const handleSignup = () => {
     if (!username || !email || !password || !confirmPassword) {
-      Alert.alert('Error', 'Please fill in all fields.');
+      Alert.alert(t('error'), t('fillAllFields'));
       return;
     }
 
     const emailResult = validateEmail(email);
 
     if (!emailResult.valid) {
-      Alert.alert('Error', emailResult.message as string);
+      Alert.alert(t('error'), t('invalidEmailMessage'));
       return;
     }
 
     if (!isValidPassword(password)) {
       Alert.alert(
-        'Error',
-        'Password must be at least 8 characters and include at least 1 uppercase letter and numbers.'
+        t('error'),
+        t('passwordRule')
       );
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert('Error', 'Password does not match.');
+      Alert.alert(t('error'), t('passwordMismatch'));
       return;
     }
 
@@ -113,20 +118,19 @@ export default function SignupScreen() {
     // reset email.
     if (emailResult.suggestion) {
       Alert.alert(
-        'Check Your Email Address',
-        `You entered ${emailResult.email}. Did you mean ${emailResult.suggestion}?\n\n` +
-          'You will need this address to reset your password later.',
+        t('checkEmailAddress'),
+        t('didYouMean', { email: emailResult.email, suggestion: emailResult.suggestion }),
         [
-          { text: 'Edit', style: 'cancel' },
+          { text: t('editAddress'), style: 'cancel' },
           {
-            text: `Use ${emailResult.suggestion}`,
+            text: t('useSuggestion', { suggestion: emailResult.suggestion }),
             onPress: () => {
               setEmail(emailResult.suggestion as string);
               createAccount(emailResult.suggestion as string);
             },
           },
           {
-            text: 'Use mine anyway',
+            text: t('useMine'),
             style: 'destructive',
             onPress: () => createAccount(emailResult.email),
           },
@@ -179,12 +183,12 @@ export default function SignupScreen() {
       await deleteApp(secondaryApp);
       secondaryApp = null;
 
-      Alert.alert('Success', 'Account created successfully.', [
-        {
-          text: 'OK',
-          onPress: () => router.replace('/' as never),
-        },
-      ]);
+      // A successful signup is the only automatic entry point to language
+      // onboarding. Sign the new account into the primary app, then show the
+      // selector once. Saving there writes the preference to users/{uid}.
+      await signInWithEmailAndPassword(auth, normalizedEmail, password);
+      router.replace('/language-selection' as never);
+      Alert.alert(t('success'), t('accountCreated'));
     } catch (error: any) {
       if (secondaryApp) {
         try {
@@ -197,28 +201,28 @@ export default function SignupScreen() {
       const described = describeSignupError(error);
 
       if (described.code === 'auth/email-already-in-use') {
-        Alert.alert(described.title, described.message, [
-          { text: 'Cancel', style: 'cancel' },
+        Alert.alert(t('error'), t('unableCreateAccount'), [
+          { text: t('cancel'), style: 'cancel' },
           {
-            text: 'Go to Login',
+            text: t('backToLogin'),
             onPress: () => router.replace('/' as never),
           },
         ]);
         return;
       }
 
-      Alert.alert(described.title, described.message);
+      Alert.alert(t('error'), t('unableCreateAccount'));
     }
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <Text style={styles.title}>Create Account</Text>
+        <Text style={styles.title}>{t('createAccount')}</Text>
 
         <TextInput
           style={styles.input}
-          placeholder="Username"
+          placeholder={t('username')}
           placeholderTextColor="#94a3b8"
           value={username}
           onChangeText={setUsername}
@@ -227,7 +231,7 @@ export default function SignupScreen() {
 
         <TextInput
           style={styles.input}
-          placeholder="Email"
+          placeholder={t('email')}
           placeholderTextColor="#94a3b8"
           value={email}
           onChangeText={setEmail}
@@ -237,7 +241,7 @@ export default function SignupScreen() {
 
         <TextInput
           style={styles.input}
-          placeholder="Password"
+          placeholder={t('password')}
           placeholderTextColor="#94a3b8"
           value={password}
           onChangeText={setPassword}
@@ -246,7 +250,7 @@ export default function SignupScreen() {
 
         <TextInput
           style={styles.input}
-          placeholder="Confirm Password"
+          placeholder={t('confirmPassword')}
           placeholderTextColor="#94a3b8"
           value={confirmPassword}
           onChangeText={setConfirmPassword}
@@ -254,18 +258,18 @@ export default function SignupScreen() {
         />
 
         <TouchableOpacity style={styles.button} onPress={handleSignup}>
-          <Text style={styles.buttonText}>Sign Up</Text>
+          <Text style={styles.buttonText}>{t('signUp')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => router.replace('/' as never)}>
-          <Text style={styles.link}>Back to Login</Text>
+          <Text style={styles.link}>{t('backToLogin')}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#ffffff',

@@ -53,7 +53,7 @@ HOW TO WRITE
   screen literally as punctuation.
 - Under about 120 words, in short paragraphs.
 - Simple language a patient can follow. Explain any medical term you use.
-- Reply in the same language the user wrote in.
+- Follow the application-language instruction supplied by the server.
 - You are an AI assistant. Never claim or imply otherwise.
 - Always finish every sentence and give a complete answer. Do not end a reply
   mid-sentence, even when the answer must be brief.
@@ -69,6 +69,9 @@ app.get('/health', (_request, response) => {
 app.post('/api/chat', async (request, response) => {
   const question = String(request.body?.question || '').trim();
   const history = Array.isArray(request.body?.history) ? request.body.history : [];
+  const language = ['en', 'ms', 'zh'].includes(request.body?.language)
+    ? request.body.language : 'en';
+  const languageName = { en: 'English', ms: 'Bahasa Melayu', zh: 'Simplified Chinese' }[language];
 
   if (!question) {
     response.status(400).json({ error: 'A question is required.' });
@@ -98,7 +101,7 @@ app.post('/api/chat', async (request, response) => {
     const interaction = await ai.interactions.create({
       model,
       input,
-      system_instruction: MEDICAL_SYSTEM_INSTRUCTION,
+      system_instruction: `${MEDICAL_SYSTEM_INSTRUCTION}\n\nAPPLICATION LANGUAGE\nReply only in ${languageName}, regardless of the language used in the question or earlier messages. Keep medicine names unchanged.`,
       generation_config: {
         temperature: 0.2,
         thinking_level: 'low',

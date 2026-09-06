@@ -45,3 +45,20 @@ app-example
 /android
 
 .vs/
+
+# Python recognition service, downloaded data, and local evaluation
+.venv/
+__pycache__/
+.pytest_cache/
+*.py[cod]
+backend/data/npra/*.csv
+backend/data/npra/*.db
+backend/data/npra/*.db-*
+backend/data/npra/*.download
+backend/models/*.pt
+backend/models/*.onnx
+backend/models/*_model/
+evaluation-results/
+/out/
+/feno_blister.jpg
+/feno_plain.jpg

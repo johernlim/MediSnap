@@ -13,6 +13,8 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useLanguage } from '../contexts/LanguageContext';
+import { useThemedStyles } from '../hooks/use-themed-styles';
 import ReminderForm from '../components/ReminderForm';
 import ReminderItem from '../components/ReminderItem';
 import { auth } from '../firebaseConfig';
@@ -60,6 +62,8 @@ const emptyErrors = {
 };
 
 export default function RemindersScreen() {
+  const { t } = useLanguage();
+  const styles = useThemedStyles(baseStyles);
   const [medications, setMedications] = useState([]);
   const [reminders, setReminders] = useState([]);
   const [formData, setFormData] = useState(emptyForm);
@@ -99,7 +103,7 @@ export default function RemindersScreen() {
       },
       (error) => {
         console.error('Failed to load medications:', error);
-        Alert.alert('Error', 'Unable to load medications right now.');
+        Alert.alert(t('error'), t('unableLoadMedications'));
       }
     );
 
@@ -111,7 +115,7 @@ export default function RemindersScreen() {
       },
       (error) => {
         console.error('Failed to load reminders:', error);
-        Alert.alert('Error', 'Unable to load reminders right now.');
+        Alert.alert(t('error'), t('unableLoadReminders'));
         setLoading(false);
       }
     );
@@ -295,21 +299,21 @@ export default function RemindersScreen() {
 
   const getMedicationName = (medId) => {
     const found = getMedication(medId);
-    return found?.med_name || 'Unknown medication';
+    return found?.med_name || t('unknownMedication');
   };
 
   const handleSubmit = async () => {
     const currentUser = auth.currentUser;
 
     if (!currentUser) {
-      Alert.alert('Login required', 'Please log in to manage reminders.');
+      Alert.alert(t('loginRequired'), t('manageRemindersLogin'));
       return;
     }
 
     if (medications.length === 0) {
       Alert.alert(
-        'No medications found',
-        'Please add a medication before creating a reminder.'
+        t('noMedicationsFound'),
+        t('addMedicationFirst')
       );
       return;
     }
@@ -321,7 +325,7 @@ export default function RemindersScreen() {
     }
 
     if (editingId && !hasChanges()) {
-      Alert.alert('No Changes', 'Please update at least one field before saving.');
+      Alert.alert(t('noChanges'), t('updateOneField'));
       return;
     }
 
@@ -366,16 +370,16 @@ export default function RemindersScreen() {
 
       if (editingId) {
         await updateReminderRecord(editingId, payload);
-        Alert.alert('Updated', 'Reminder updated successfully.');
+        Alert.alert(t('updated'), t('reminderUpdated'));
       } else {
         await createReminderRecord(payload);
-        Alert.alert('Saved', 'Reminder created successfully.');
+        Alert.alert(t('saved'), t('reminderCreated'));
       }
 
       resetForm();
     } catch (error) {
       console.error('Failed to save reminder:', error);
-      Alert.alert('Error', 'Unable to save the reminder right now.');
+      Alert.alert(t('error'), t('unableSaveReminder'));
     } finally {
       setSaving(false);
     }
@@ -419,13 +423,13 @@ export default function RemindersScreen() {
   };
 
   const handleDelete = (item) => {
-    Alert.alert('Delete reminder', 'Are you sure you want to delete this reminder?', [
+    Alert.alert(t('deleteReminder'), t('deleteReminderQuestion'), [
       {
-        text: 'Cancel',
+        text: t('cancel'),
         style: 'cancel',
       },
       {
-        text: 'Delete',
+        text: t('delete'),
         style: 'destructive',
         onPress: async () => {
           try {
@@ -439,10 +443,10 @@ export default function RemindersScreen() {
               resetForm();
             }
 
-            Alert.alert('Deleted', 'Reminder deleted successfully.');
+            Alert.alert(t('deleted'), t('reminderDeleted'));
           } catch (error) {
             console.error('Failed to delete reminder:', error);
-            Alert.alert('Error', 'Unable to delete the reminder right now.');
+            Alert.alert(t('error'), t('unableDeleteReminder'));
           }
         },
       },
@@ -456,11 +460,11 @@ export default function RemindersScreen() {
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.topBar}>
           <Pressable style={styles.backButton} onPress={() => router.back()}>
-            <Text style={styles.backButtonText}>Back</Text>
+            <Text style={styles.backButtonText}>{t('back')}</Text>
           </Pressable>
         </View>
 
-        <Text style={styles.title}>Reminder Management</Text>
+        <Text style={styles.title}>{t('reminderManagement')}</Text>
         <Text style={styles.subtitle}>
           Create medication reminders with one or more times, save them to Firestore,
           and schedule local notifications.
@@ -468,7 +472,7 @@ export default function RemindersScreen() {
 
         {!currentUser ? (
           <View style={styles.emptyBox}>
-            <Text style={styles.emptyText}>No authenticated user found.</Text>
+            <Text style={styles.emptyText}>{t('noUser')}</Text>
           </View>
         ) : (
           <>
@@ -485,7 +489,7 @@ export default function RemindersScreen() {
             />
 
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Your Reminders</Text>
+              <Text style={styles.sectionTitle}>{t('yourReminders')}</Text>
               <Text style={styles.countText}>{reminders.length} item(s)</Text>
             </View>
 
@@ -493,7 +497,7 @@ export default function RemindersScreen() {
               <ActivityIndicator size="large" color="#2563eb" style={styles.loader} />
             ) : reminders.length === 0 ? (
               <View style={styles.emptyBox}>
-                <Text style={styles.emptyText}>No reminders added yet.</Text>
+                <Text style={styles.emptyText}>{t('noReminders')}</Text>
               </View>
             ) : (
               reminders.map((item) => (
@@ -513,7 +517,7 @@ export default function RemindersScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#f8fafc',

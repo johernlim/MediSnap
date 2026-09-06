@@ -1,6 +1,8 @@
 import { StyleSheet, Text, View } from 'react-native';
+import { useThemedStyles } from '../hooks/use-themed-styles';
 
 export default function ChatMessageBubble({ message }) {
+  const styles = useThemedStyles(baseStyles);
   const isUser = message.sender === 'user';
 
   return (
@@ -17,7 +19,7 @@ export default function ChatMessageBubble({ message }) {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   wrapper: {
     marginBottom: 12,
     flexDirection: 'row',
